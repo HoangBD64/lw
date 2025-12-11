@@ -1,0 +1,10 @@
+# dependencies
+.env
+tmp
+test
+token_jwt_key.pem
+infra/_data
+.null-ls*
+
+.idea
+testdata

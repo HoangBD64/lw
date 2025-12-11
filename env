@@ -1,0 +1,22 @@
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=root
+DB_NAME=legal_swift
+WEB_PORT=4000
+# 
+
+SSO_END_POINT= https://sso.shopasic.com
+SSO_CLIENT_ID= 7ee45810f21ca08bef9d
+SSO_CLIENT_SECRET= "0130a2bfdb9d2d57cd25ff068cca8bace5c43cbf"
+SSO_ORGANIZATION_NAME= nvstudio
+SSO_APPLICATION_NAME= omp
+# 
+S3_ACCESS_KEY= paypal_key
+S3_SECRET_KEY= ""
+S3_ENDPOINT_API= nvcdn.shopasic.com
+S3_ENDPOINT_CDN= nvcdn.shopasic.com
+S3_BUCKET= crm
+S3_SSL= true
+
+MACHINE_ID=123

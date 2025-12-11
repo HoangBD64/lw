@@ -1,0 +1,75 @@
+package repo
+
+import (
+	"core/internal/domain_model/model"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+type Query struct {
+	UserID       *uuid.UUID `query:"user_id" json:"user_id,omitempty"`
+	ID           *uuid.UUID `query:"id"  json:"id,omitempty"`
+	IDS          []uuid.UUID
+	UserIDs      []uuid.UUID
+	AdminID      *uuid.UUID
+	PublicID     *uuid.UUID `query:"public_id" json:"public_id"`
+	Role         string     `query:"role"  json:"role,omitempty"`
+	Limit        int        `query:"limit" json:"limit,omitempty"`
+	Page         int        `query:"page" json:"page,omitempty"`
+	Name         string     `query:"name" json:"name,omitempty"`
+	Email        string     `query:"email" json:"email,omitempty"`
+	Search       string     `query:"search" json:"search,omitempty"`
+	//
+	StartTime     *time.Time `query:"start_time" json:"start_time,omitempty"`
+	EndTime       *time.Time `query:"end_time" json:"end_time,omitempty"`
+	Status        string     `query:"status" json:"status,omitempty"`
+	Type          string     `query:"type" json:"type,omitempty"`
+	Sort          string     `query:"sort" json:"sort,omitempty"`
+	Filter        string     `query:"filter" json:"filter"`
+	Hidden        *bool      `query:"hidden"`
+}
+
+func (query *Query) Parse(c *fiber.Ctx) {
+	if err := c.QueryParser(query); err != nil {
+		query.Limit = 10
+		query.Page = 1
+	}
+	if query.Limit <= 0 {
+		query.Limit = 10
+	}
+	if query.Page <= 0 {
+		query.Page = 1
+	}
+}
+
+func (q *Query) ParseForAdmin(c *fiber.Ctx, admin model.Admin) error {
+	q.Parse(c)
+	return nil
+}
+
+type SystemSettingMail struct {
+	SENDER_MAIL string `json:"sender_mail"`
+	ACCOUNT     string `json:"mail_account"`
+	PASS        string `json:"mail_pass"`
+	HeaderName  string `json:"header"`
+	PORT        string `json:"port"`
+	HOST        string `json:"host"`
+}
+
+// gorm pagination scope
+func pagination(page, pageSize int) func(*gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB { return db.Offset(pageSize * (page - 1)).Limit(pageSize) }
+}
+
+// preload with select arguments
+func populate(model string, fields ...string) func(*gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		if len(fields) > 0 {
+			return db.Preload(model, func(tx *gorm.DB) *gorm.DB { return tx.Select(fields) })
+		}
+		return db.Preload(model)
+	}
+} 
