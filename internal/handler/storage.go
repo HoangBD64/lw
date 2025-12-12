@@ -33,6 +33,7 @@ func GetUploadUrl(c *fiber.Ctx) error {
 	}
 	return c.JSON(base.BaseResponse{Status: true, Data: resp})
 }
+
 func AdminGetUploadUrl(c *fiber.Ctx) error {
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {

@@ -84,8 +84,18 @@ func setupRouter(fiber_app *fiber.App) {
 
 	api_user.Post("/login_sso.json", handler.VerifyUserSSO)
 	api_user.Use(middleware.Authen)
-	api_user.Get("/detail.json", handler.GetUserDetail)
-	api_user.Patch("/detail.json", handler.UpdateUserInfo)
+
+	// user info
+	api_user.Get("/info/detail.json", handler.GetUserDetail)
+	api_user.Patch("/info.json", handler.UpdateUserInfo)
+
+	// documents
+	// api_user.Get("/documents/:id.json", handler.GetDocumentByID)
+	api_user.Get("/documents.json", handler.UserGetUserDocuments)
+	// api_user.Get("/documents.json", handler.AdminGetDocuments)
+	api_user.Post("/documents.json", handler.UserCreateDocument)
+	api_user.Patch("/documents/:id.json", handler.UserUpdateDocument)
+
 	//s3
 	api_user.Put("/s3.json", middleware.Author(""), handler.GetUploadUrl)
 
@@ -115,7 +125,11 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Get("/documents.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminGetDocuments)
 	api_admin.Post("/documents.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminCreateDocument)
 	api_admin.Patch("/documents/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUpdateDocument)
-	api_admin.Delete("/documents/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteDocument)
+	api_admin.Delete("/documents.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteDocument)
+
+	// document assignments
+	api_admin.Post("/documents/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminAssignDocument)
+	// api_admin.Delete("/documents/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUnassignDocument)
 }
 
 func Recover() {

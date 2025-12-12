@@ -75,7 +75,7 @@ func NewAppUtils() *AppUtils {
 	}
 }
 
-// NOTE: validation only works if data is a struct
+// NOTE: TEMPORARY
 func (a *AppUtils) Validate(ctx context.Context, data any) error {
 	if err := a.Conform.Struct(ctx, data); err != nil {
 		return err

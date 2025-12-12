@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strconv"
-	"time"
 
 	"github.com/casdoor/casdoor-go-sdk/casdoorsdk"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/joho/godotenv"
-	"github.com/sony/sonyflake"
 )
 
 type AppConfig struct {
@@ -25,7 +22,6 @@ var DbHost string
 var Database *DatabaseConfig
 var Logging *LoggingConfig
 var SSO *casdoorsdk.Client
-var IDGenerator *sonyflake.Sonyflake
 
 func Setup() {
 	var Http = &AppConfig{
@@ -35,27 +31,6 @@ func Setup() {
 	if err := godotenv.Load(".env"); err != nil {
 		fmt.Println(err)
 	}
-
-	envMachineID := Config("MACHINE_ID")
-
-	machineID, err := strconv.Atoi(envMachineID)
-	if err != nil {
-		slog.Error("invalid machine id format", "error", err)
-		os.Exit(2)
-	}
-
-	snf, err := sonyflake.New(sonyflake.Settings{
-		StartTime:      time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		MachineID:      func() (uint16, error) { return uint16(machineID), nil },
-		CheckMachineID: func(uint16) bool { return true },
-	})
-
-	if err != nil {
-		slog.Error("failed to create sonyflake instance", "error", err)
-		os.Exit(2)
-	}
-
-	IDGenerator = snf
 
 	certificate_content, err1 := os.ReadFile("token_jwt_key.pem")
 	if err1 != nil {

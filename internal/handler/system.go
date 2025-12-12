@@ -138,7 +138,9 @@ func isSystemSettingRoleAllowed(typeName string, sysAdmin model.SystemAdmin) err
 	dualAccess := "both"
 
 	src := map[string]string{
-		model.STORAGE_CREDENTIAL: model.SUPER_ADMIN,
+		// NOTE: TEMPORARY
+		// model.STORAGE_CREDENTIAL: model.SUPER_ADMIN,
+		model.STORAGE_CREDENTIAL: "admin",
 	}
 
 	perm, exists := src[typeName]

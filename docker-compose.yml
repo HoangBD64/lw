@@ -30,16 +30,16 @@ services:
     ports:
       - 4000:4000
 
-  admin:
-    image: registry.gitlab.com/legalswift/admin:latest
-    environment:
-      # Endpoint API
-      NUXT_PUBLIC_BASE_URL: https://legalswift-api.shopasic.com/
-      # SSO
-      NUXT_PUBLIC_SSO_END_POINT: https://sso.shopasic.com
-      NUXT_PUBLIC_SSO_CLIENT_ID: 4bf2bb6f630039fdc2b3
-      NUXT_PUBLIC_SSO_ORGANIZATION_NAME: nvstudio
-      NUXT_PUBLIC_SSO_APPLICATION_NAME: legalswift
-      PORT: 3000
-    ports:
-      - 3000:3000
+  # admin:
+  #   image: registry.gitlab.com/legalswift/admin:latest
+  #   environment:
+  #     # Endpoint API
+  #     NUXT_PUBLIC_BASE_URL: https://legalswift-api.shopasic.com/
+  #     # SSO
+  #     NUXT_PUBLIC_SSO_END_POINT: https://sso.shopasic.com
+  #     NUXT_PUBLIC_SSO_CLIENT_ID: 4bf2bb6f630039fdc2b3
+  #     NUXT_PUBLIC_SSO_ORGANIZATION_NAME: nvstudio
+  #     NUXT_PUBLIC_SSO_APPLICATION_NAME: legalswift
+  #     PORT: 3000
+  #   ports:
+  #     - 3000:3000

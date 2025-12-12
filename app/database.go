@@ -72,7 +72,10 @@ func MigrateDatabase(DB *gorm.DB) {
 	migrations := []any{
 		&model.User{},
 		&model.Admin{},
+		&model.SuperAdmin{},
 		&model.Document{},
+		&model.UserDocument{},
+		&model.SystemSetting{},
 	}
 
 	if err := DB.AutoMigrate(migrations...); err != nil {
