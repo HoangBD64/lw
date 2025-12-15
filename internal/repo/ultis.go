@@ -10,26 +10,34 @@ import (
 )
 
 type Query struct {
-	UserID       *uuid.UUID `query:"user_id" json:"user_id,omitempty"`
-	ID           *uuid.UUID `query:"id"  json:"id,omitempty"`
-	IDS          []uuid.UUID
-	UserIDs      []uuid.UUID
-	AdminID      *uuid.UUID
-	PublicID     *uuid.UUID `query:"public_id" json:"public_id"`
-	Role         string     `query:"role"  json:"role,omitempty"`
-	Limit        int        `query:"limit" json:"limit,omitempty"`
-	Page         int        `query:"page" json:"page,omitempty"`
-	Name         string     `query:"name" json:"name,omitempty"`
-	Email        string     `query:"email" json:"email,omitempty"`
-	Search       string     `query:"search" json:"search,omitempty"`
+	UserID   *uuid.UUID `query:"user_id" json:"user_id,omitempty"`
+	ID       *uuid.UUID `query:"id"  json:"id,omitempty"`
+	IDS      []uuid.UUID
+	UserIDs  []uuid.UUID
+	AdminID  *uuid.UUID
+	PublicID *uuid.UUID `query:"public_id" json:"public_id"`
+	Role     string     `query:"role"  json:"role,omitempty"`
+	Limit    int        `query:"limit" json:"limit,omitempty"`
+	Page     int        `query:"page" json:"page,omitempty"`
+	Name     string     `query:"name" json:"name,omitempty"`
+	Email    string     `query:"email" json:"email,omitempty"`
+	Search   string     `query:"search" json:"search,omitempty"`
 	//
-	StartTime     *time.Time `query:"start_time" json:"start_time,omitempty"`
-	EndTime       *time.Time `query:"end_time" json:"end_time,omitempty"`
-	Status        string     `query:"status" json:"status,omitempty"`
-	Type          string     `query:"type" json:"type,omitempty"`
-	Sort          string     `query:"sort" json:"sort,omitempty"`
-	Filter        string     `query:"filter" json:"filter"`
-	Hidden        *bool      `query:"hidden"`
+	StartTime *time.Time `query:"start_time" json:"start_time,omitempty"`
+	EndTime   *time.Time `query:"end_time" json:"end_time,omitempty"`
+	Status    string     `query:"status" json:"status,omitempty"`
+	Type      string     `query:"type" json:"type,omitempty"`
+	Sort      string     `query:"sort" json:"sort,omitempty"`
+	Filter    string     `query:"filter" json:"filter"`
+	Hidden    *bool      `query:"hidden"`
+
+	// Ticket/document filters
+	DocumentID        *int   `query:"document_id" json:"document_id,omitempty"`
+	TicketStatusRead  *bool  `query:"ticket_status_read" json:"ticket_status_read,omitempty"`
+	TicketStatus      string `query:"ticket_status" json:"ticket_status,omitempty"`
+	TicketCategory    string `query:"ticket_category" json:"ticket_category,omitempty"`
+	TicketSubCategory string `query:"ticket_sub_category" json:"ticket_sub_category,omitempty"`
+	TicketResolution  string `query:"ticket_resolution" json:"ticket_resolution,omitempty"`
 }
 
 func (query *Query) Parse(c *fiber.Ctx) {
@@ -72,4 +80,4 @@ func populate(model string, fields ...string) func(*gorm.DB) *gorm.DB {
 		}
 		return db.Preload(model)
 	}
-} 
+}

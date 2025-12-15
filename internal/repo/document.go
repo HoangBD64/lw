@@ -29,7 +29,7 @@ func AdminUpdateDocument(doc *model.Document) error {
 	return app.Database.DB.Model(&model.Document{}).Where("id = ?", doc.ID).Updates(doc).Error
 }
 
-func AdminGetDocuments(q Query) ([]model.Document, int64) {
+func AdminGetDocuments(q Query) ([]model.Document, int64, error) {
 	var (
 		items []model.Document
 		count int64
@@ -46,10 +46,10 @@ func AdminGetDocuments(q Query) ([]model.Document, int64) {
 	}
 	tx = tx.Count(&count)
 	if tx.Error != nil {
-		return nil, 0
+		return nil, 0, tx.Error
 	}
 	tx = tx.Scopes(pagination(q.Page, q.Limit)).Order("created_at DESC").Find(&items)
-	return items, count
+	return items, count, nil
 }
 
 func UserGetUserDocuments(q Query) ([]model.UserDocument, int64, error) {
@@ -58,7 +58,9 @@ func UserGetUserDocuments(q Query) ([]model.UserDocument, int64, error) {
 		count         int64
 	)
 	tx := app.Database.DB.Model(&model.UserDocument{}).
-		Preload("Document", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "name", "file_type", "file_url", "size", "description")}).
+		Preload("Document", func(tx *gorm.DB) *gorm.DB {
+			return tx.Select("id", "name", "file_type", "file_url", "size", "description")
+		}).
 		Select("id", "document_id").
 		Where("user_id = ?", q.UserID)
 	tx = tx.Count(&count)

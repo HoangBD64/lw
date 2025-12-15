@@ -89,15 +89,31 @@ func setupRouter(fiber_app *fiber.App) {
 	api_user.Get("/info/detail.json", handler.GetUserDetail)
 	api_user.Patch("/info.json", handler.UpdateUserInfo)
 
+	//s3
+	api_user.Put("/s3.json", middleware.Author(""), handler.GetUploadUrl)
+
 	// documents
-	// api_user.Get("/documents/:id.json", handler.GetDocumentByID)
+	// api_user.Get("/documents/:id.json", handler.GetDocumentDetailByID)
 	api_user.Get("/documents.json", handler.UserGetUserDocuments)
-	// api_user.Get("/documents.json", handler.AdminGetDocuments)
 	api_user.Post("/documents.json", handler.UserCreateDocument)
 	api_user.Patch("/documents/:id.json", handler.UserUpdateDocument)
 
-	//s3
-	api_user.Put("/s3.json", middleware.Author(""), handler.GetUploadUrl)
+	// procedure
+	api_user.Get("/procedures/:id.json", handler.UserGetProcedure)
+
+	// procedure step
+	api_user.Get("/procedures/:id/steps.json", handler.UserGetProcedureStepData)
+	api_user.Get("/procedures/steps/list.json", handler.UserListProcedureStepData)
+	api_user.Post("/procedures/steps/data.json", handler.UserUpsertProcedureStepData)
+
+	// tickets (user)
+	// api_user.Get("/tickets.json", handler.GetTickets)
+	// api_user.Get("/tickets/by-document.json", handler.GetTicketDocument)
+	// api_user.Get("/tickets/by-user-documents.json", handler.GetTicketsByUserDocuments)
+	// api_user.Get("/tickets/detail.json", handler.GetTicketDetail)
+	// api_user.Post("/tickets.json", handler.CreateTicket)
+	// api_user.Post("/tickets/content.json", handler.CreateTicketContent)
+	// api_user.Patch("/tickets/status.json", handler.UpdateStatusTicket)
 
 	// admin
 	api_admin := fiber_app.Group("/api/admin")
@@ -127,9 +143,31 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Patch("/documents/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUpdateDocument)
 	api_admin.Delete("/documents.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteDocument)
 
+	// procedures
+	api_admin.Get("/procedures/:id.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminGetProcedure)
+	api_admin.Get("/procedures.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminGetProcedures)
+	api_admin.Post("/procedures.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminCreateProcedure)
+	api_admin.Patch("/procedures/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUpdateProcedure)
+	api_admin.Delete("/procedures.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteProcedure)
+
 	// document assignments
 	api_admin.Post("/documents/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminAssignDocument)
 	// api_admin.Delete("/documents/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUnassignDocument)
+
+	// procedure steps
+	api_admin.Get("/procedure/:id/steps.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminListProcedureSteps)
+	api_admin.Post("/procedure/steps.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminCreateProcedureStep)
+	api_admin.Patch("/procedure/steps/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUpdateProcedureStep)
+	api_admin.Delete("/procedure/steps.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteProcedureStep)
+
+	// admin view procedure per-step data
+	api_admin.Get("/procedure/steps/user.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminListUserProcedureStepData)
+
+	// tickets (admin)
+	// api_admin.Get("/tickets/detail.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicketDetail)
+	// api_admin.Get("/tickets.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicket)
+	// api_admin.Post("/tickets/content.json", middleware.AuthorizeAdmin("ticket", "manage"), handler.AdminCreateTicketContent)
+
 }
 
 func Recover() {

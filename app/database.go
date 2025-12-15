@@ -76,6 +76,16 @@ func MigrateDatabase(DB *gorm.DB) {
 		&model.Document{},
 		&model.UserDocument{},
 		&model.SystemSetting{},
+		&model.Ticket{},
+		&model.TicketContent{},
+		&model.DocumentTicket{},
+		&model.UserDocumentTicket{},
+		&model.Procedure{},
+		&model.ProcedureStep{},
+		&model.UserProcedure{},
+		&model.UserProcedureStep{},
+		&model.Notification{},
+		&model.NotificationPreference{},
 	}
 
 	if err := DB.AutoMigrate(migrations...); err != nil {

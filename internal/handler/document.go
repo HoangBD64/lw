@@ -98,7 +98,10 @@ func AdminGetDocument(c *fiber.Ctx) error {
 func AdminGetDocuments(c *fiber.Ctx) error {
 	var q repo.Query
 	q.Parse(c)
-	items, total := repo.AdminGetDocuments(q)
+	items, total, err := repo.AdminGetDocuments(q)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Get Documents Failed", Error: err})
+	}
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: fiber.Map{"items": items, "total": total}})
 }
 
@@ -195,16 +198,16 @@ func UserGetUserDocuments(c *fiber.Ctx) error {
 	var query repo.Query
 	query.Parse(c)
 	query.UserID = &user.ID
-	// get list documents
 
-	items, total, err := repo.UserGetUserDocuments(query)
+	items, total, err := repo.AdminGetDocuments(query)
+	// items, total, err := repo.UserGetUserDocuments(query)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Failed to get user documents", Error: err})
 	}
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: items, Total: &total})
 }
 
-//NOTE: User Create/Update Document (for uploading new document)
+// NOTE: User Create/Update Document (for uploading new document)
 func UserCreateDocument(c *fiber.Ctx) error {
 	var input domain.DocumentCreateRequest
 	if err := c.BodyParser(&input); err != nil {
@@ -221,6 +224,9 @@ func UserCreateDocument(c *fiber.Ctx) error {
 	if err := repo.UserCreateDocument(&doc); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Create Document", Error: err})
 	}
+	// if err := repo.UserCreateUserDocument(&doc); err != nil {
+	// 	return c.JSON(base.BaseResponse{Status: false, Message: "Can't Create Document", Error: err})
+	// }
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
