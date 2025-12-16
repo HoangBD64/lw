@@ -17,7 +17,7 @@ func CreateTicket(c *fiber.Ctx) error {
 	}
 
 	type request struct {
-		UserDocumentIDs []int          `json:"user_document_ids"`
+		UserProcedureID int            `json:"user_procedure_id"`
 		Category        string         `json:"category"`
 		SubCategory     string         `json:"sub_category"`
 		PreferSolution  string         `json:"prefer_solution"`
@@ -30,8 +30,11 @@ func CreateTicket(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": false, "error": "Invalid request body", "err": err.Error()})
 	}
 
-	if len(input.UserDocumentIDs) == 0 {
-		return c.JSON(fiber.Map{"status": false, "error": "user_document_ids can't be empty"})
+	if input.UserProcedureID <= 0 {
+		return c.JSON(fiber.Map{"status": false, "error": "user_procedure_id can't be empty"})
+	}
+	if _, err := repo.GetUserProcedureByID(user.ID, input.UserProcedureID); err != nil {
+		return c.JSON(fiber.Map{"status": false, "message": "Can't find user_procedure for this user", "error": err.Error()})
 	}
 	new_ticket_content := model.TicketContent{
 		Attachment: input.Attachments,
@@ -39,29 +42,16 @@ func CreateTicket(c *fiber.Ctx) error {
 		Content:    input.Description,
 	}
 	new_ticket := model.Ticket{
-		Status:         model.TICKET_OPEN,
-		Category:       input.Category,
-		SubCategory:    input.SubCategory,
-		PreferSolution: input.PreferSolution,
-		TicketContents: []model.TicketContent{new_ticket_content},
+		Status:          model.TICKET_OPEN,
+		Category:        input.Category,
+		SubCategory:     input.SubCategory,
+		PreferSolution:  input.PreferSolution,
+		TicketContents:  []model.TicketContent{new_ticket_content},
+		UserProcedureID: &input.UserProcedureID,
 	}
-	ticket_created, err1 := repo.CreateTicket(new_ticket)
+	_, err1 := repo.CreateTicket(new_ticket)
 	if err1 != nil {
 		return c.JSON(fiber.Map{"status": false, "message": "Can't CreateTicket", "error": err1.Error()})
-	}
-
-	// Link ticket to user documents
-	list_ud_tickets := []model.UserDocumentTicket{}
-	for i := 0; i < len(input.UserDocumentIDs); i++ {
-		new_udt := model.UserDocumentTicket{
-			TicketID:       ticket_created.ID,
-			UserDocumentID: input.UserDocumentIDs[i],
-		}
-		list_ud_tickets = append(list_ud_tickets, new_udt)
-	}
-	_, err2 := repo.CreateUserDocumentTicket(list_ud_tickets)
-	if err2 != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't CreateUserDocumentTicket", "error": err2.Error()})
 	}
 	return c.JSON(fiber.Map{"status": true, "message": "Success"})
 }
@@ -178,11 +168,11 @@ func UpdateStatusTicket(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": true, "message": "Success"})
 }
 
-func GetTicketDocument(c *fiber.Ctx) error {
+func GetTicketProcedure(c *fiber.Ctx) error {
 	var query repo.Query
 	query.Parse(c)
-	if query.DocumentID == nil {
-		return c.JSON(fiber.Map{"status": false, "message": "document_id can't be empty"})
+	if query.UserProcedureID == nil {
+		return c.JSON(fiber.Map{"status": false, "message": "user_procedure_id can't be empty"})
 	}
 	ticket, total, err := repo.GetTicketDocument(query)
 	if err != nil {
@@ -203,7 +193,7 @@ func GetTickets(c *fiber.Ctx) error {
 // List tickets by multiple user_document_ids
 func GetTicketsByUserDocuments(c *fiber.Ctx) error {
 	type req struct {
-		UserDocumentIDs []int `json:"user_document_ids"`
+		UserProcedureID *int `json:"user_procedure_id"`
 	}
 	var body req
 	if err := c.BodyParser(&body); err != nil {
@@ -211,7 +201,10 @@ func GetTicketsByUserDocuments(c *fiber.Ctx) error {
 	}
 	var q repo.Query
 	q.Parse(c)
-	tickets, total, err := repo.GetTicketsByUserDocumentIDs(body.UserDocumentIDs, q)
+	if body.UserProcedureID != nil {
+		q.UserProcedureID = body.UserProcedureID
+	}
+	tickets, total, err := repo.GetTicketDocument(q)
 	if err != nil {
 		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTicketsByUserDocumentIDs", "error": err.Error()})
 	}

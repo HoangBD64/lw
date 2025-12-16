@@ -35,8 +35,9 @@ type Permission struct {
 }
 
 const (
-	RoleAdmin = "admin"
-	ADMIN     = "admin"
+	RoleAdmin  = "admin"
+	RoleLaywer = "lawyer"
+	ADMIN      = "admin"
 )
 
 func (a Admin) hasRole(role string) bool {
@@ -44,6 +45,7 @@ func (a Admin) hasRole(role string) bool {
 }
 
 func (a Admin) IsAdmin() bool { return a.hasRole(RoleAdmin) }
+func (a Admin) IsLawyer() bool { return a.hasRole(RoleLaywer) }
 
 func (Admin) AdminType() string {
 	return ADMIN

@@ -15,13 +15,17 @@ import (
 )
 
 func AdminCreateDocument(c *fiber.Ctx) error {
-	var input domain.DocumentCreateRequest
-	if err := c.BodyParser(&input); err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
-	}
+	// only lawyer
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
+	if !admin.IsLawyer() {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Unauthorized"})
+	}
+	var input domain.DocumentCreateRequest
+	if err := c.BodyParser(&input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
 	}
 	doc := model.Document{
 		Name:         input.Name,
@@ -39,6 +43,15 @@ func AdminCreateDocument(c *fiber.Ctx) error {
 }
 
 func AdminUpdateDocument(c *fiber.Ctx) error {
+	// only lawyer
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
+	if !admin.IsLawyer() {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Unauthorized"})
+	}
+
 	var input domain.DocumentUpdateRequest
 	if err := c.BodyParser(&input); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
@@ -106,6 +119,15 @@ func AdminGetDocuments(c *fiber.Ctx) error {
 }
 
 func AdminDeleteDocument(c *fiber.Ctx) error {
+	// only lawyer
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
+	if !admin.IsLawyer() {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Unauthorized"})
+	}
+
 	var input domain.DocumentDeleteRequest
 	if err := c.BodyParser(&input); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid id", Error: err})
@@ -128,6 +150,9 @@ func AdminAssignDocument(c *fiber.Ctx) error {
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
+	if !admin.IsAdmin() {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Unauthorized"})
 	}
 
 	var listAssign []model.UserDocument
@@ -160,35 +185,6 @@ func AdminAssignDocument(c *fiber.Ctx) error {
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
-// func AdminUnassignDocument(c *fiber.Ctx) error {
-// 	var input domain.DocumentUnassignRequest
-// 	if err := c.BodyParser(&input); err != nil {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
-// 	}
-
-// 	var listUnassign []model.UserDocument
-// 	for _, assign := range input.Unassignments {
-// 		var documnent model.UserDocument
-// 		userID, err := uuid.Parse(assign.UserID)
-// 		if err != nil {
-// 			return c.JSON(base.BaseResponse{
-// 				Status:  false,
-// 				Message: "Invalid user_id",
-// 				Error:   err,
-// 			})
-// 		}
-// 		documnent.UserID = userID
-// 		documnent.DocumentID = assign.DocumentID
-// 		listUnassign = append(listUnassign, documnent)
-// 	}
-
-// 	rows, err := repo.AdminUnassignDocumentFromUser(listUnassign)
-// 	if err != nil {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Unassign Document", Error: err})
-// 	}
-// 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &rows})
-// }
-
 func UserGetUserDocuments(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
@@ -200,7 +196,6 @@ func UserGetUserDocuments(c *fiber.Ctx) error {
 	query.UserID = &user.ID
 
 	items, total, err := repo.AdminGetDocuments(query)
-	// items, total, err := repo.UserGetUserDocuments(query)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Failed to get user documents", Error: err})
 	}
@@ -224,9 +219,6 @@ func UserCreateDocument(c *fiber.Ctx) error {
 	if err := repo.UserCreateDocument(&doc); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Create Document", Error: err})
 	}
-	// if err := repo.UserCreateUserDocument(&doc); err != nil {
-	// 	return c.JSON(base.BaseResponse{Status: false, Message: "Can't Create Document", Error: err})
-	// }
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 

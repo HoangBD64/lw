@@ -19,9 +19,10 @@ func GetTicketDocument(query Query) ([]model.Ticket, int64, error) {
 	var tickets []model.Ticket
 	var count int64
 
-	tx := app.Database.DB.Model(&model.Ticket{}).
-		Joins("JOIN user_document_tickets ON tickets.id = user_document_tickets.ticket_id").
-		Where("user_document_tickets.user_document_id = ?", query.DocumentID)
+	tx := app.Database.DB.Model(&model.Ticket{})
+	if query.UserProcedureID != nil {
+		tx = tx.Where("user_procedure_id = ?", *query.UserProcedureID)
+	}
 
 	if query.TicketStatusRead != nil {
 		if *query.TicketStatusRead {
@@ -60,6 +61,11 @@ func GetTicketDocument(query Query) ([]model.Ticket, int64, error) {
 func GetTicketsByUserDocumentIDs(ids []int, q Query) ([]model.Ticket, int64, error) {
 	var tickets []model.Ticket
 	var count int64
+
+	// Deprecated: switch to filtering by user_procedure_id if provided
+	if q.UserProcedureID != nil {
+		return GetTicketDocument(Query{Limit: q.Limit, Page: q.Page, TicketStatusRead: q.TicketStatusRead, TicketStatus: q.TicketStatus, TicketCategory: q.TicketCategory, TicketSubCategory: q.TicketSubCategory, TicketResolution: q.TicketResolution, UserProcedureID: q.UserProcedureID})
+	}
 
 	if len(ids) == 0 {
 		return []model.Ticket{}, 0, nil
@@ -106,11 +112,10 @@ func GetTicket(query Query) ([]model.Ticket, int64, error) {
 	var tickets []model.Ticket
 	var count int64
 
-	tx := app.Database.DB.Model(&model.Ticket{}).
-		Preload("Documents", func(tx *gorm.DB) *gorm.DB {
-			return tx.Select("id", "name", "file_type", "file_url", "size", "description")
-		}).
-		Preload("UserDocuments", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "document_id") })
+	tx := app.Database.DB.Model(&model.Ticket{})
+	if query.UserProcedureID != nil {
+		tx = tx.Where("user_procedure_id = ?", *query.UserProcedureID)
+	}
 
 	if query.TicketStatusRead != nil {
 		if *query.TicketStatusRead {
@@ -146,10 +151,6 @@ func GetTicket(query Query) ([]model.Ticket, int64, error) {
 func GetTicketDetail(id uuid.UUID, user model.User) (model.Ticket, error) {
 	var ticket model.Ticket
 	tx := app.Database.DB.Model(&model.Ticket{}).Debug().Where("id = ?", id).
-		Preload("Documents", func(tx *gorm.DB) *gorm.DB {
-			return tx.Select("id", "name", "file_type", "file_url", "size", "description")
-		}).
-		Preload("UserDocuments", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "document_id") }).
 		Preload("TicketContents", func(tx *gorm.DB) *gorm.DB {
 			tx = tx.Preload("User", func(tx *gorm.DB) *gorm.DB {
 				tx = tx.Select("id", "name", "email", "avatar")
@@ -217,12 +218,10 @@ func AdminGetTickets(query Query) ([]model.Ticket, int64, error) {
 	var tickets []model.Ticket
 	var count int64
 
-	tx := app.Database.DB.Model(&model.Ticket{}).Preload("Orders", func(tx *gorm.DB) *gorm.DB {
-		tx = tx.Select("id", "order_number", "is_have_ticket", "order_code")
-		return tx
-	}).Preload("Store", func(tx *gorm.DB) *gorm.DB {
-		return tx.Select("id", "name", "status")
-	})
+	tx := app.Database.DB.Model(&model.Ticket{})
+	if query.UserProcedureID != nil {
+		tx = tx.Where("tickets.user_procedure_id = ?", *query.UserProcedureID)
+	}
 	if query.TicketStatusRead != nil {
 		if *query.TicketStatusRead {
 			tx = tx.Where("tickets.admin_read_at IS NOT NULL")

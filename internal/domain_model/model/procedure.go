@@ -15,13 +15,13 @@ type Procedure struct {
 	Name         string     `json:"name"`
 	UpdateBy     string     `json:"update_by,omitempty"`
 	Description  *string    `json:"description,omitempty"`
-	IsHaveTicket bool       `json:"is_have_ticket,omitempty"`
+	Cost         *float64   `json:"cost"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
 	DeletedAt *gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 
-	Status         string          `json:"status" gorm:"index"`
+	IsActive       *bool           `json:"is_active" gorm:"index"`
 	DueDate        *int            `json:"due_date"`
 	ProcedureSteps []ProcedureStep `json:"procedure_steps,omitempty"`
 }
@@ -38,6 +38,7 @@ type ProcedureStep struct {
 	Position    int            `json:"position"`
 	IsActive    *bool          `json:"is_active"`
 	Data        datatypes.JSON `json:"data"`
+	Description *string        `json:"description,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -57,6 +58,7 @@ type UserProcedureStep struct {
 	IsActive        *bool          `json:"is_active"`
 	Status          string         `json:"status" gorm:"index"`
 	Data            datatypes.JSON `json:"data"`
+	Description     *string        `json:"description,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -72,10 +74,11 @@ type UserProcedure struct {
 	AdminID            *uuid.UUID          `json:"admin_id,omitempty"`
 	Admin              *Admin              `json:"admin,omitempty"`
 	Name               string              `json:"name"`
-	IsHaveTicket       bool                `json:"is_have_ticket,omitempty"`
+	IsHaveTicket       *bool               `json:"is_have_ticket,omitempty"`
 	Status             string              `json:"status" gorm:"index"`
 	DueDate            *int                `json:"due_date"`
 	UserProcedureSteps []UserProcedureStep `json:"user_procedure_steps,omitempty"`
+	Cost               *float64            `json:"cost,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`

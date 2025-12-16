@@ -99,21 +99,22 @@ func setupRouter(fiber_app *fiber.App) {
 	api_user.Patch("/documents/:id.json", handler.UserUpdateDocument)
 
 	// procedure
-	api_user.Get("/procedures/:id.json", handler.UserGetProcedure)
-
+	api_user.Get("/procedures-templates.json", handler.UserGetProcedures)
+	api_user.Get("/procedures-templates/:id.json", handler.UserGetProcedure)
+	api_user.Get("/procedures.json", handler.UserListUserProcedures)
+	api_user.Post("/procedures.json", handler.UserCreateProcedure)
+	api_user.Get("/procedures/:id/steps.json", handler.UserGetProcedureDetail)
+	
 	// procedure step
-	api_user.Get("/procedures/:id/steps.json", handler.UserGetProcedureStepData)
-	api_user.Get("/procedures/steps/list.json", handler.UserListProcedureStepData)
-	api_user.Post("/procedures/steps/data.json", handler.UserUpsertProcedureStepData)
+	api_user.Patch("/procedures/steps/:id.json", handler.UserUpdateUserProcedureStep)
 
-	// tickets (user)
-	// api_user.Get("/tickets.json", handler.GetTickets)
-	// api_user.Get("/tickets/by-document.json", handler.GetTicketDocument)
-	// api_user.Get("/tickets/by-user-documents.json", handler.GetTicketsByUserDocuments)
-	// api_user.Get("/tickets/detail.json", handler.GetTicketDetail)
-	// api_user.Post("/tickets.json", handler.CreateTicket)
-	// api_user.Post("/tickets/content.json", handler.CreateTicketContent)
-	// api_user.Patch("/tickets/status.json", handler.UpdateStatusTicket)
+	// tickets
+	api_user.Get("/tickets.json", handler.GetTickets)
+	api_user.Get("/tickets/by-user-procedure.json", handler.GetTicketProcedure)
+	api_user.Post("/tickets.json", handler.CreateTicket)
+	api_user.Get("/tickets/detail.json", handler.GetTicketDetail)
+	api_user.Post("/tickets/content.json", handler.CreateTicketContent)
+	api_user.Patch("/tickets/status.json", handler.UpdateStatusTicket)
 
 	// admin
 	api_admin := fiber_app.Group("/api/admin")
@@ -149,10 +150,12 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Post("/procedures.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminCreateProcedure)
 	api_admin.Patch("/procedures/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUpdateProcedure)
 	api_admin.Delete("/procedures.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteProcedure)
+	// bulk upsert procedure with steps
+	api_admin.Post("/procedures/bulk.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminBulkUpsertProcedure)
 
-	// document assignments
-	api_admin.Post("/documents/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminAssignDocument)
-	// api_admin.Delete("/documents/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUnassignDocument)
+	// user procedure assignments
+	api_admin.Post("/user_procedures/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminAssignUserProcedure)
+	api_admin.Delete("/user_procedures/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUnassignUserProcedure)
 
 	// procedure steps
 	api_admin.Get("/procedure/:id/steps.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminListProcedureSteps)
@@ -164,9 +167,9 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Get("/procedure/steps/user.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminListUserProcedureStepData)
 
 	// tickets (admin)
-	// api_admin.Get("/tickets/detail.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicketDetail)
-	// api_admin.Get("/tickets.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicket)
-	// api_admin.Post("/tickets/content.json", middleware.AuthorizeAdmin("ticket", "manage"), handler.AdminCreateTicketContent)
+	api_admin.Get("/tickets/detail.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicketDetail)
+	api_admin.Get("/tickets.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicket)
+	api_admin.Post("/tickets/content.json", middleware.AuthorizeAdmin("ticket", "manage"), handler.AdminCreateTicketContent)
 
 }
 

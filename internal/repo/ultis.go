@@ -33,6 +33,7 @@ type Query struct {
 
 	// Ticket/document filters
 	DocumentID        *int   `query:"document_id" json:"document_id,omitempty"`
+	UserProcedureID   *int   `query:"user_procedure_id" json:"user_procedure_id,omitempty"`
 	TicketStatusRead  *bool  `query:"ticket_status_read" json:"ticket_status_read,omitempty"`
 	TicketStatus      string `query:"ticket_status" json:"ticket_status,omitempty"`
 	TicketCategory    string `query:"ticket_category" json:"ticket_category,omitempty"`
