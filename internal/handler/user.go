@@ -100,6 +100,7 @@ func GetUserDetail(c *fiber.Ctx) error {
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
 	}
+	user.SystemNote = nil
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: user})
 }
 

@@ -110,7 +110,7 @@ type UserProcedureStepOverrideData struct {
 }
 
 type AssignUserProcedureRequest struct {
-	UserProcedureID int        `json:"user_procedure_id" validate:"required,gt=0"`
+	UserProcedureID []int      `json:"user_procedure_id" validate:"required,gt=0"`
 	AdminID         *uuid.UUID `json:"admin_id"`
 }
 
@@ -120,4 +120,9 @@ type UnassignUserProcedureRequest struct {
 
 type UserUpdateUserProcedureStepRequest struct {
 	Data datatypes.JSON `json:"data"`
+}
+
+type AdminUpdateUserProcedureRequest struct {
+	Status string `json:"status"`
+	Note   string `json:"note"`
 }

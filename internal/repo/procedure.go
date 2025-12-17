@@ -124,13 +124,53 @@ func GetUserProcedureDetail(userProcedureID int, userID uuid.UUID) ([]model.User
 	return ups, tx.Error
 }
 
-func AdminGetUserProcedureSteps(userProcedureID int) ([]model.UserProcedureStep, error) {
-	var items []model.UserProcedureStep
-	tx := app.Database.DB.Model(&model.UserProcedureStep{}).
-		Where("user_procedure_id = ?", userProcedureID).
+func AdminGetUserProcedureByID(userProcedureID int) (model.UserProcedure, error) {
+	var up model.UserProcedure
+	err := app.Database.DB.Model(&model.UserProcedure{}).
+		Where("id = ?", userProcedureID).
+		First(&up).Error
+	return up, err
+}
+
+func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
+	var (
+		items []model.UserProcedure
+		count int64
+	)
+	tx := app.Database.DB.Model(&model.UserProcedure{}).
+		Omit("Procedure", "UserProcedureSteps", "Admin").
+		Preload("User", func(dbx *gorm.DB) *gorm.DB {
+			return dbx.Model(&model.User{}).Select("id", "name", "email", "phone", "role", "avatar", "status")
+		}).
+		Preload("Admin", func(dbx *gorm.DB) *gorm.DB {
+			return dbx.Model(&model.Admin{}).Select("id", "name", "email", "avatar", "status")
+		})
+	if q.UserID != nil {
+		tx = tx.Where("user_id = ?", q.UserID)
+	}
+	if q.Status != "" {
+		tx = tx.Where("status = ?", q.Status)
+	}
+	if q.AdminID != nil {
+		tx = tx.Where("admin_id = ?", q.AdminID)
+	}
+	if q.ProcedureID != nil {
+		tx = tx.Where("procedure_id = ?", q.ProcedureID)
+	}
+	if q.Search != "" {
+		tx = tx.Where("name ILIKE ?", "%"+q.Search+"%")
+	}
+	if q.IsHaveTicket != nil {
+		tx = tx.Where("is_have_ticket = ?", q.IsHaveTicket)
+	}
+	tx = tx.Count(&count)
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	tx = tx.Scopes(pagination(q.Page, q.Limit)).
 		Order("created_at DESC").
 		Find(&items)
-	return items, tx.Error
+	return items, count, tx.Error
 }
 
 func GetProcedureByID(id int) (model.Procedure, error) {
@@ -161,24 +201,29 @@ func GetUserProcedureByID(userID uuid.UUID, userProcedureID int) (model.UserProc
 	return up, err
 }
 
-func AdminGetUserProcedureByID(userProcedureID int) (model.UserProcedure, error) {
-	var up model.UserProcedure
-	err := app.Database.DB.Model(&model.UserProcedure{}).
-		Where("id = ?", userProcedureID).
-		First(&up).Error
-	return up, err
-}
-
-func AssignAdminToUserProcedure(userProcedureID int, adminID uuid.UUID) error {
-	return app.Database.DB.Model(&model.UserProcedure{}).
-		Where("id = ?", userProcedureID).
-		Updates(map[string]any{"admin_id": adminID}).Error
+func AssignAdminToUserProcedures(userProcedureIDs []int, adminID uuid.UUID) (int64, error) {
+	tx := app.Database.DB.Model(&model.UserProcedure{}).
+		Where("id IN ?", userProcedureIDs).
+		Updates(map[string]any{"admin_id": adminID})
+	return tx.RowsAffected, tx.Error
 }
 
 func UnassignAdminFromUserProcedure(userProcedureID int) error {
 	return app.Database.DB.Model(&model.UserProcedure{}).
 		Where("id = ?", userProcedureID).
 		Updates(map[string]any{"admin_id": nil}).Error
+}
+
+func AdminGetUserProcedureDetailByID(userProcedureID int) (model.UserProcedure, error) {
+	var up model.UserProcedure
+	err := app.Database.DB.Model(&model.UserProcedure{}).
+		Preload("UserProcedureSteps").
+		Preload("Admin", func(dbx *gorm.DB) *gorm.DB {
+			return dbx.Model(&model.Admin{}).Select("id", "name", "email", "role", "avatar", "status")
+		}).
+		Where("id = ?", userProcedureID).
+		First(&up).Error
+	return up, err
 }
 
 func CreateUserProcedure(userProcedure model.UserProcedure) (model.UserProcedure, error) {
@@ -277,6 +322,15 @@ func UpdateUserProcedureStep(ups *model.UserProcedureStep) error {
 	return app.Database.DB.Model(&model.UserProcedureStep{}).
 		Where("id = ?", ups.ID).
 		Updates(ups).Error
+}
+
+func AdminUpdateUserProcedure(up *model.UserProcedure) error {
+	return app.Database.DB.Model(&model.UserProcedure{}).
+		Where("id = ?", up.ID).
+		Updates(map[string]any{
+			"status": up.Status,
+			"note":   up.Note,
+		}).Error
 }
 
 func AdminBulkUpsertProcedureWithSteps(proc model.Procedure, steps []model.ProcedureStep) (model.Procedure, []model.ProcedureStep, error) {

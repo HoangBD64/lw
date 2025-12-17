@@ -93,7 +93,6 @@ func setupRouter(fiber_app *fiber.App) {
 	api_user.Put("/s3.json", middleware.Author(""), handler.GetUploadUrl)
 
 	// documents
-	// api_user.Get("/documents/:id.json", handler.GetDocumentDetailByID)
 	api_user.Get("/documents.json", handler.UserGetUserDocuments)
 	api_user.Post("/documents.json", handler.UserCreateDocument)
 	api_user.Patch("/documents/:id.json", handler.UserUpdateDocument)
@@ -102,9 +101,9 @@ func setupRouter(fiber_app *fiber.App) {
 	api_user.Get("/procedures-templates.json", handler.UserGetProcedures)
 	api_user.Get("/procedures-templates/:id.json", handler.UserGetProcedure)
 	api_user.Get("/procedures.json", handler.UserListUserProcedures)
-	api_user.Post("/procedures.json", handler.UserCreateProcedure)
 	api_user.Get("/procedures/:id/steps.json", handler.UserGetProcedureDetail)
-	
+	api_user.Post("/procedures.json", handler.UserCreateProcedure)
+
 	// procedure step
 	api_user.Patch("/procedures/steps/:id.json", handler.UserUpdateUserProcedureStep)
 
@@ -122,8 +121,12 @@ func setupRouter(fiber_app *fiber.App) {
 
 	api_admin.Use(middleware.AuthenAdmin)
 
-	// permissions
-	api_admin.Patch("/permissions.json", middleware.AuthorizeAdmin("admin", "manage"), handler.AdminUpdatePermissions)
+	// admin info
+	api_admin.Get("/admin.json", middleware.AuthorizeAdmin("admin", "view"), handler.GetAdmin)
+	api_admin.Get("/admins.json", middleware.AuthorizeAdmin("admin", "view"), handler.GetAllAdmin)
+	api_admin.Patch("/admin/status.json", middleware.AuthorizeAdmin("admin", "manage"), handler.AdminUpdateAdminStatus)
+	api_admin.Patch("/admin/role.json", middleware.AuthorizeAdmin("admin", "manage"), handler.AdminUpdateRole)
+	api_admin.Patch("admin/permissions.json", middleware.AuthorizeAdmin("admin", "manage"), handler.AdminUpdatePermissions)
 
 	//s3
 	api_admin.Put("/s3.json", handler.AdminGetUploadUrl)
@@ -145,28 +148,27 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Delete("/documents.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteDocument)
 
 	// procedures
-	api_admin.Get("/procedures/:id.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminGetProcedure)
-	api_admin.Get("/procedures.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminGetProcedures)
-	api_admin.Post("/procedures.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminCreateProcedure)
-	api_admin.Patch("/procedures/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUpdateProcedure)
-	api_admin.Delete("/procedures.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteProcedure)
-	// bulk upsert procedure with steps
-	api_admin.Post("/procedures/bulk.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminBulkUpsertProcedure)
+	api_admin.Get("/procedures/:id.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetProcedure)
+	api_admin.Get("/procedures.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetProcedures)
+	api_admin.Post("/procedures.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminCreateProcedure)
+	api_admin.Patch("/procedures/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateProcedure)
+	api_admin.Delete("/procedures.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminDeleteProcedure)
+	api_admin.Post("/procedures/bulk.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminBulkUpsertProcedure)
 
-	// user procedure assignments
-	api_admin.Post("/user_procedures/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminAssignUserProcedure)
-	api_admin.Delete("/user_procedures/assign.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUnassignUserProcedure)
+	// user procedure
+	api_admin.Get("/user-procedures.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminListUserProcedures)
+	api_admin.Get("/user-procedures/:id.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetDetailUserProcedures)
+	api_admin.Patch("/user-procedures/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedure)
+	api_admin.Patch("/user-procedures/admin/assign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminAssignUserProcedure)
+	api_admin.Patch("/user-procedures/admin/unassign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUnassignUserProcedure)
 
 	// procedure steps
-	api_admin.Get("/procedure/:id/steps.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminListProcedureSteps)
-	api_admin.Post("/procedure/steps.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminCreateProcedureStep)
-	api_admin.Patch("/procedure/steps/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUpdateProcedureStep)
-	api_admin.Delete("/procedure/steps.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteProcedureStep)
+	api_admin.Get("/procedure/:id/steps.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminListProcedureSteps)
+	api_admin.Post("/procedure/steps.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminCreateProcedureStep)
+	api_admin.Patch("/procedure/steps/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateProcedureStep)
+	api_admin.Delete("/procedure/steps.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminDeleteProcedureStep)
 
-	// admin view procedure per-step data
-	api_admin.Get("/procedure/steps/user.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminListUserProcedureStepData)
-
-	// tickets (admin)
+	// tickets
 	api_admin.Get("/tickets/detail.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicketDetail)
 	api_admin.Get("/tickets.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicket)
 	api_admin.Post("/tickets/content.json", middleware.AuthorizeAdmin("ticket", "manage"), handler.AdminCreateTicketContent)

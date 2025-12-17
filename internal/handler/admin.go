@@ -160,7 +160,6 @@ func AdminUpdateAdminStatus(c *fiber.Ctx) error {
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: fiber.Map{"total": row_change}})
 }
 
-// update admin permission
 func AdminUpdatePermissions(c *fiber.Ctx) error {
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
@@ -244,7 +243,7 @@ func AdminUpdateRole(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Admin not found", Error: err})
 	}
 	if !isValidAdminRole(input.Role) {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid role. Must be 'admin' or 'cs'", Error: nil})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid role. Must be 'admin' or 'lawyer'", Error: nil})
 	}
 	admin_found.Role = input.Role
 	_, err = repo.UpdateAdminRole(c.Context(), admin_found)
@@ -256,5 +255,5 @@ func AdminUpdateRole(c *fiber.Ctx) error {
 
 func isValidAdminRole(r string) bool {
 	r = strings.ToLower(strings.TrimSpace(r))
-	return r == model.RoleAdmin
+	return r == model.RoleAdmin || r == model.RoleLawyer
 }

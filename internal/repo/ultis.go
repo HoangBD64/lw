@@ -10,18 +10,20 @@ import (
 )
 
 type Query struct {
-	UserID   *uuid.UUID `query:"user_id" json:"user_id,omitempty"`
-	ID       *uuid.UUID `query:"id"  json:"id,omitempty"`
-	IDS      []uuid.UUID
-	UserIDs  []uuid.UUID
-	AdminID  *uuid.UUID
-	PublicID *uuid.UUID `query:"public_id" json:"public_id"`
-	Role     string     `query:"role"  json:"role,omitempty"`
-	Limit    int        `query:"limit" json:"limit,omitempty"`
-	Page     int        `query:"page" json:"page,omitempty"`
-	Name     string     `query:"name" json:"name,omitempty"`
-	Email    string     `query:"email" json:"email,omitempty"`
-	Search   string     `query:"search" json:"search,omitempty"`
+	UserID       *uuid.UUID `query:"user_id" json:"user_id,omitempty"`
+	ID           *uuid.UUID `query:"id"  json:"id,omitempty"`
+	IDS          []uuid.UUID
+	UserIDs      []uuid.UUID
+	AdminID      *uuid.UUID `query:"admin_id" json:"admin_id"`
+	ProcedureID  *int       `query:"procedure_id" json:"procedure_id,omitempty"`
+	PublicID     *uuid.UUID `query:"public_id" json:"public_id"`
+	Role         string     `query:"role"  json:"role,omitempty"`
+	Limit        int        `query:"limit" json:"limit,omitempty"`
+	Page         int        `query:"page" json:"page,omitempty"`
+	Name         string     `query:"name" json:"name,omitempty"`
+	Email        string     `query:"email" json:"email,omitempty"`
+	Search       string     `query:"search" json:"search,omitempty"`
+	IsHaveTicket *bool      `query:"is_have_ticket" json:"is_have_ticket,omitempty"`
 	//
 	StartTime *time.Time `query:"start_time" json:"start_time,omitempty"`
 	EndTime   *time.Time `query:"end_time" json:"end_time,omitempty"`
@@ -56,6 +58,9 @@ func (query *Query) Parse(c *fiber.Ctx) {
 
 func (q *Query) ParseForAdmin(c *fiber.Ctx, admin model.Admin) error {
 	q.Parse(c)
+	if admin.IsLawyer() {
+		q.AdminID = &admin.ID
+	}
 	return nil
 }
 

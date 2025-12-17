@@ -9,13 +9,13 @@ import (
 )
 
 type Procedure struct {
-	ID           int        `gorm:"primaryKey,autoIncrement" json:"id"`
-	AdminID      *uuid.UUID `json:"admin_id,omitempty"`
-	Admin        *Admin     `json:"admin,omitempty"`
-	Name         string     `json:"name"`
-	UpdateBy     string     `json:"update_by,omitempty"`
-	Description  *string    `json:"description,omitempty"`
-	Cost         *float64   `json:"cost"`
+	ID          int        `gorm:"primaryKey,autoIncrement" json:"id"`
+	AdminID     *uuid.UUID `json:"admin_id,omitempty"`
+	Admin       *Admin     `json:"admin,omitempty"`
+	Name        string     `json:"name"`
+	UpdateBy    string     `json:"update_by,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	Cost        *float64   `json:"cost"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -76,6 +76,7 @@ type UserProcedure struct {
 	Name               string              `json:"name"`
 	IsHaveTicket       *bool               `json:"is_have_ticket,omitempty"`
 	Status             string              `json:"status" gorm:"index"`
+	Note               string              `json:"note"`
 	DueDate            *int                `json:"due_date"`
 	UserProcedureSteps []UserProcedureStep `json:"user_procedure_steps,omitempty"`
 	Cost               *float64            `json:"cost,omitempty"`

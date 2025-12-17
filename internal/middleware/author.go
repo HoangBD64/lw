@@ -59,6 +59,12 @@ func AuthorizeAdmin(module string, action string) fiber.Handler {
 			allowed = checkPermission(admin_permissions.Setting, action)
 		case "document":
 			allowed = checkPermission(admin_permissions.Document, action)
+		case "procedures":
+			allowed = checkPermission(admin_permissions.Procedures, action)
+		case "assignment":
+			allowed = checkPermission(admin_permissions.Assignment, action)
+		case "ticket":
+			allowed = checkPermission(admin_permissions.Ticket, action)
 		default:
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"status":     false,

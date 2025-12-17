@@ -23,10 +23,13 @@ type Admin struct {
 }
 
 type AdminPermission struct {
-	Admin    Permission `json:"admin"`
-	User     Permission `json:"user"`
-	Setting  Permission `json:"setting"`
-	Document Permission `json:"document"`
+	Admin      Permission `json:"admin"`
+	User       Permission `json:"user"`
+	Setting    Permission `json:"setting"`
+	Document   Permission `json:"document"`
+	Procedures Permission `json:"procedures"`
+	Assignment Permission `json:"assignment"`
+	Ticket     Permission `json:"ticket"`
 }
 
 type Permission struct {
@@ -36,17 +39,16 @@ type Permission struct {
 
 const (
 	RoleAdmin  = "admin"
-	RoleLaywer = "lawyer"
-	ADMIN      = "admin"
+	RoleLawyer = "lawyer"
 )
 
 func (a Admin) hasRole(role string) bool {
 	return a.Role == role
 }
 
-func (a Admin) IsAdmin() bool { return a.hasRole(RoleAdmin) }
-func (a Admin) IsLawyer() bool { return a.hasRole(RoleLaywer) }
+func (a Admin) IsAdmin() bool  { return a.hasRole(RoleAdmin) }
+func (a Admin) IsLawyer() bool { return a.hasRole(RoleLawyer) }
 
 func (Admin) AdminType() string {
-	return ADMIN
+	return RoleAdmin
 }
