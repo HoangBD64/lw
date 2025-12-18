@@ -7,10 +7,8 @@ import (
 	"core/utils/base"
 	"errors"
 	"strconv"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -135,53 +133,6 @@ func AdminDeleteDocument(c *fiber.Ctx) error {
 	if err := repo.AdminDeleteDocumentByIDs(input.IDs); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Delete Document", Error: err})
 	}
-	if err := repo.AdminDeleteUserDocumentByDocumentIDs(input.IDs); err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Delete Document", Error: err})
-	}
-	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
-}
-
-func AdminAssignDocument(c *fiber.Ctx) error {
-	var input domain.DocumentAssignRequest
-	if err := c.BodyParser(&input); err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
-	}
-
-	admin, ok := c.Locals("admin").(model.Admin)
-	if !ok {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
-	}
-	if !admin.IsAdmin() {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Unauthorized"})
-	}
-
-	var listAssign []model.UserDocument
-	for _, assign := range input.Assignments {
-		var documnent model.UserDocument
-		userID, err := uuid.Parse(assign.UserID)
-		if err != nil {
-			return c.JSON(base.BaseResponse{
-				Status:  false,
-				Message: "Invalid user_id",
-				Error:   err,
-			})
-		}
-		documnent.UserID = &userID
-		documnent.DocumentID = assign.DocumentID
-		documnent.AdminID = &admin.ID
-		now := time.Now()
-		documnent.AssignAt = &now
-		listAssign = append(listAssign, documnent)
-	}
-
-	if err := repo.AdminAssignDocumentToUser(listAssign); err != nil {
-		return c.JSON(base.BaseResponse{
-			Status:  false,
-			Message: "Can't Assign Document",
-			Error:   err,
-		})
-	}
-
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
@@ -195,15 +146,18 @@ func UserGetUserDocuments(c *fiber.Ctx) error {
 	query.Parse(c)
 	query.UserID = &user.ID
 
-	items, total, err := repo.AdminGetDocuments(query)
+	items, total, err := repo.UserGetDocuments(query)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Failed to get user documents", Error: err})
 	}
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: items, Total: &total})
 }
 
-// NOTE: User Create/Update Document (for uploading new document)
 func UserCreateDocument(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(model.User)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
+	}
 	var input domain.DocumentCreateRequest
 	if err := c.BodyParser(&input); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
@@ -215,6 +169,9 @@ func UserCreateDocument(c *fiber.Ctx) error {
 		FileType:     input.FileType,
 		DocumentType: input.DocumentType,
 		Size:         input.Size,
+		Type:         model.USER_DOCUMENT,
+		UserID:       &user.ID,
+		UserProcedureID: input.UserProcedureID,
 	}
 	if err := repo.UserCreateDocument(&doc); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Create Document", Error: err})

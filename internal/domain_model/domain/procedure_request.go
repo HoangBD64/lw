@@ -84,7 +84,7 @@ type AdminBulkUpsertProcedure struct {
 	Description *string    `json:"description,omitempty"`
 	DueDate     *int       `json:"due_date,omitempty"`
 	IsActive    *bool      `json:"is_active,omitempty"`
-	Cost        *float64   `json:"cost,omitempty"`
+	Cost        *float64   `json:"cost,omitempty" validate:"required,gte=0"`
 }
 
 type AdminBulkUpsertProcedureStep struct {
@@ -125,4 +125,5 @@ type UserUpdateUserProcedureStepRequest struct {
 type AdminUpdateUserProcedureRequest struct {
 	Status string `json:"status"`
 	Note   string `json:"note"`
+	IsLock *bool  `json:"is_lock"`
 }

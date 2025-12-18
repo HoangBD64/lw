@@ -74,7 +74,6 @@ func MigrateDatabase(DB *gorm.DB) {
 		&model.Admin{},
 		&model.SuperAdmin{},
 		&model.Document{},
-		&model.UserDocument{},
 		&model.SystemSetting{},
 		&model.Ticket{},
 		&model.TicketContent{},
@@ -86,6 +85,7 @@ func MigrateDatabase(DB *gorm.DB) {
 		&model.UserProcedureStep{},
 		&model.Notification{},
 		&model.NotificationPreference{},
+		&model.Transaction{},
 	}
 
 	if err := DB.AutoMigrate(migrations...); err != nil {

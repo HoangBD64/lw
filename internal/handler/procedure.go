@@ -322,8 +322,9 @@ func AdminUpdateUserProcedure(c *fiber.Ctx) error {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to manage this procedure"})
 		}
 	}
-	up.Status = input.Status
-	up.Note = input.Note
+	up.Status = &input.Status
+	up.Note = &input.Note
+	up.IsLock = input.IsLock
 	if err := repo.AdminUpdateUserProcedure(&up); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure failed", Error: err})
 	}
@@ -485,10 +486,11 @@ func UserCreateProcedure(c *fiber.Ctx) error {
 	}
 	totalCost := lo.FromPtr(procedure.Cost)
 	isHaveTicket := false
+	status := model.USER_PROCEDURE_CREATED
 	userProcedure := model.UserProcedure{
 		UserID:       &user.ID,
 		ProcedureID:  input.ProcedureID,
-		Status:       model.PROCEDURE_CREATED,
+		Status:       &status,
 		IsHaveTicket: &isHaveTicket,
 		Name:         procedure.Name,
 		DueDate:      procedure.DueDate,

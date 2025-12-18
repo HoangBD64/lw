@@ -66,20 +66,23 @@ type UserProcedureStep struct {
 }
 
 type UserProcedure struct {
-	ID                 int                 `gorm:"primaryKey,autoIncrement" json:"id"`
-	UserID             *uuid.UUID          `json:"user_id,omitempty"`
-	User               *User               `json:"user,omitempty"`
-	ProcedureID        int                 `json:"procedure_id"`
-	Procedure          *Procedure          `json:"procedure,omitempty"`
-	AdminID            *uuid.UUID          `json:"admin_id,omitempty"`
-	Admin              *Admin              `json:"admin,omitempty"`
-	Name               string              `json:"name"`
-	IsHaveTicket       *bool               `json:"is_have_ticket,omitempty"`
-	Status             string              `json:"status" gorm:"index"`
-	Note               string              `json:"note"`
-	DueDate            *int                `json:"due_date"`
-	UserProcedureSteps []UserProcedureStep `json:"user_procedure_steps,omitempty"`
-	Cost               *float64            `json:"cost,omitempty"`
+	ID                  int                 `gorm:"primaryKey,autoIncrement" json:"id"`
+	UserID              *uuid.UUID          `json:"user_id,omitempty"`
+	User                *User               `json:"user,omitempty"`
+	ProcedureID         int                 `json:"procedure_id"`
+	Procedure           *Procedure          `json:"procedure,omitempty"`
+	AdminID             *uuid.UUID          `json:"admin_id,omitempty"`
+	Admin               *Admin              `json:"admin,omitempty"`
+	Name                string              `json:"name"`
+	IsHaveTicket        *bool               `json:"is_have_ticket,omitempty"`
+	Status              *string             `json:"status" gorm:"index"` // created | pending | completed
+	Note                *string             `json:"note"`
+	IsLock              *bool               `json:"is_lock" gorm:"default:false"`
+	DueDate             *int                `json:"due_date"`
+	UserProcedureSteps  []UserProcedureStep `json:"user_procedure_steps,omitempty"`
+	Cost                *float64            `json:"cost,omitempty"`
+	FulfillmentStatus   *string             `json:"fulfillment_status,omitempty"`
+	FulfillmentCostPaid *time.Time          `json:"fulfillment_cost_paid,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -92,5 +95,10 @@ const (
 	PROCEDURE_STEP_DONE        = "done"
 	PROCEDURE_STEP_BLOCKED     = "blocked"
 
-	PROCEDURE_CREATED = "created"
+	USER_PROCEDURE_CREATED    = "created"
+	USER_PROCEDURE_PENDING    = "pending"
+	USER_PROCEDURE_PROCESSING = "processing"
+	USER_PROCEDURE_COMPLETED  = "completed"
+
+	FULFILLMENT_PAID = "paid"
 )

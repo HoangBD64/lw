@@ -40,6 +40,9 @@ func GetAdmin(query Query) ([]model.Admin, int64, error) {
 	if query.Status != "" {
 		tx = tx.Where("status = ?", query.Status)
 	}
+	if query.Role != "" {
+		tx = tx.Where("role = ?", query.Role)
+	}
 	if query.AdminID != nil {
 		tx = tx.Where("id = ?", query.AdminID)
 	}

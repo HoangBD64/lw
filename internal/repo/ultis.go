@@ -24,6 +24,7 @@ type Query struct {
 	Email        string     `query:"email" json:"email,omitempty"`
 	Search       string     `query:"search" json:"search,omitempty"`
 	IsHaveTicket *bool      `query:"is_have_ticket" json:"is_have_ticket,omitempty"`
+	IsAssigned   *bool      `query:"is_assigned" json:"is_assigned,omitempty"`
 	//
 	StartTime *time.Time `query:"start_time" json:"start_time,omitempty"`
 	EndTime   *time.Time `query:"end_time" json:"end_time,omitempty"`

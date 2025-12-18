@@ -3,7 +3,6 @@ package repo
 import (
 	"core/app"
 	"core/internal/domain_model/model"
-	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -82,7 +81,6 @@ func AdminGetProcedureStepByID(id int) (model.ProcedureStep, error) {
 }
 
 func UserGetProcedureSteps(procedureID int) ([]model.ProcedureStep, error) {
-	fmt.Println("===>3", procedureID)
 	var steps []model.ProcedureStep
 	tx := app.Database.DB.Model(&model.ProcedureStep{}).
 		Where("procedure_id = ? AND is_active = ?", procedureID, true).
@@ -162,6 +160,13 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 	}
 	if q.IsHaveTicket != nil {
 		tx = tx.Where("is_have_ticket = ?", q.IsHaveTicket)
+	}
+	if q.IsAssigned != nil {
+		if *q.IsAssigned {
+			tx = tx.Where("admin_id IS NOT NULL")
+		} else {
+			tx = tx.Where("admin_id IS NULL AND status = ?", model.USER_PROCEDURE_PENDING)
+		}
 	}
 	tx = tx.Count(&count)
 	if tx.Error != nil {
@@ -264,10 +269,11 @@ func CreateUserProcedureWithSteps(userID uuid.UUID, baseProcedure model.Procedur
 	var createdSteps []model.UserProcedureStep
 	err := app.Database.DB.Transaction(func(tx *gorm.DB) error {
 		isHaveTicket := false
+		status := model.USER_PROCEDURE_CREATED
 		up = model.UserProcedure{
 			UserID:       &userID,
 			ProcedureID:  baseProcedure.ID,
-			Status:       model.PROCEDURE_CREATED,
+			Status:       &status,
 			IsHaveTicket: &isHaveTicket,
 			Name:         baseProcedure.Name,
 			DueDate:      baseProcedure.DueDate,
@@ -327,10 +333,7 @@ func UpdateUserProcedureStep(ups *model.UserProcedureStep) error {
 func AdminUpdateUserProcedure(up *model.UserProcedure) error {
 	return app.Database.DB.Model(&model.UserProcedure{}).
 		Where("id = ?", up.ID).
-		Updates(map[string]any{
-			"status": up.Status,
-			"note":   up.Note,
-		}).Error
+		Updates(up).Error
 }
 
 func AdminBulkUpsertProcedureWithSteps(proc model.Procedure, steps []model.ProcedureStep) (model.Procedure, []model.ProcedureStep, error) {

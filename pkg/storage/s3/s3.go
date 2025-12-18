@@ -125,9 +125,9 @@ func GetUrlS3(data PutObjectUpload, user model.User, key KeyS3) (string, string,
 	}
 	uuidKey, _ := uuid.NewUUID()
 	objectKey := fmt.Sprintf("%s/%s/%s/%s/%s", data.ParentFolder, fmt.Sprint(user.Name), time.Now().Format("200601"), uuidKey, data.Title)
-	presignedURL, err1 := minioClient.PresignedPutObject(context.Background(), bucketName, objectKey, time.Duration(1000)*time.Second)
-	if err1 != nil {
-		return "", "", err1
+	presignedURL, err := minioClient.PresignedPutObject(context.Background(), bucketName, objectKey, time.Duration(1000)*time.Second)
+	if err != nil {
+		return "", "", err
 	}
 	var direct_url string
 	url := presignedURL.String()
@@ -168,9 +168,9 @@ func AdminGetUrlS3(data PutObjectUpload, admin model.Admin, key KeyS3) (string, 
 	uuidKey, _ := uuid.NewUUID()
 	// var folder = GetFolder(data.ContentType)
 	objectKey := fmt.Sprintf("%s/%s/%s%s", "admin", time.Now().Format("200601"), uuidKey, ext)
-	presignedURL, err1 := minioClient.PresignedPutObject(context.Background(), bucketName, objectKey, time.Duration(1000)*time.Second)
-	if err1 != nil {
-		return "", "", err1
+	presignedURL, err := minioClient.PresignedPutObject(context.Background(), bucketName, objectKey, time.Duration(1000)*time.Second)
+	if err != nil {
+		return "", "", err
 	}
 	var direct_url string
 	url := presignedURL.String()

@@ -12,8 +12,20 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
+
+type PaymentInfoSetting struct {
+	Type           string         `json:"type"`
+	APIBase        string         `json:"api_base,omitempty"`
+	ClientID       string         `json:"client_id,omitempty"`
+	APIKey         string         `json:"api_key,omitempty"`
+	ClientSecret   string         `json:"client_secret,omitempty"`
+	IsActive       bool           `json:"is_active"`
+	Metadata       datatypes.JSON `json:"metadata,omitempty"`
+	TransactionFee float64        `json:"transaction_fee"`
+}
 
 func GetSystemSetting(c *fiber.Ctx) error {
 	var query repo.Query
@@ -88,6 +100,38 @@ func AdminUpdateSetting(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "an error occurred", Error: err})
 	}
 
+	if setting_found.Type == model.PAYMENT_INFO {
+		old_data := []PaymentInfoSetting{}
+		if err := json.Unmarshal(setting_found.Metadata, &old_data); err != nil {
+			slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON:", err)
+		}
+		new_data := []PaymentInfoSetting{}
+		if err := json.Unmarshal(input.Metadata, &new_data); err != nil {
+			slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON:", err)
+		}
+		old_data_update := []PaymentInfoSetting{}
+		for _, new_setting := range new_data {
+			for _, payment_info := range old_data {
+				if new_setting.Type == payment_info.Type && (new_setting.Type == model.PAYMENT_PAYPAL || new_setting.Type == model.PAYMENT_AIRWALLEX) {
+					if new_setting.APIKey == "" {
+						new_setting.APIKey = payment_info.APIKey
+					}
+					if new_setting.ClientSecret == "" {
+						new_setting.ClientSecret = payment_info.ClientSecret
+					}
+				}
+			}
+
+			old_data_update = append(old_data_update, new_setting)
+		}
+		setting_new, err := json.Marshal(old_data_update)
+		if err != nil {
+			return c.JSON(fiber.Map{"status": false, "message": "json.Marshal(old_data) Error", "error": err.Error()})
+		}
+
+		input.Metadata = setting_new
+	}
+
 	if setting_found.Type == model.STORAGE_CREDENTIAL {
 		newData := model.StorageCredential{}
 		if err := json.Unmarshal(input.Metadata, &newData); err != nil {
@@ -140,7 +184,8 @@ func isSystemSettingRoleAllowed(typeName string, sysAdmin model.SystemAdmin) err
 	src := map[string]string{
 		// NOTE: TEMPORARY
 		// model.STORAGE_CREDENTIAL: model.SUPER_ADMIN,
-		model.STORAGE_CREDENTIAL: "admin",
+		model.STORAGE_CREDENTIAL: model.RoleAdmin,
+		model.PAYMENT_INFO:       model.RoleAdmin,
 	}
 
 	perm, exists := src[typeName]

@@ -38,11 +38,14 @@ func AdminGetDocuments(q Query) ([]model.Document, int64, error) {
 	if q.Search != "" {
 		tx = tx.Where("name ILIKE ? OR file_type ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%")
 	}
-	if q.Status != "" {
-		tx = tx.Where("status = ?", q.Status)
-	}
 	if q.AdminID != nil {
 		tx = tx.Where("admin_id = ?", q.AdminID)
+	}
+	if q.Type != "" {
+		tx = tx.Where("type = ?", q.Type)
+	}
+	if q.UserID != nil {
+		tx = tx.Where("user_id = ?", q.UserID)
 	}
 	tx = tx.Count(&count)
 	if tx.Error != nil {
@@ -52,17 +55,23 @@ func AdminGetDocuments(q Query) ([]model.Document, int64, error) {
 	return items, count, nil
 }
 
-func UserGetUserDocuments(q Query) ([]model.UserDocument, int64, error) {
+func UserGetDocuments(q Query) ([]model.Document, int64, error) {
 	var (
-		userDocuments []model.UserDocument
+		userDocuments []model.Document
 		count         int64
 	)
-	tx := app.Database.DB.Model(&model.UserDocument{}).
-		Preload("Document", func(tx *gorm.DB) *gorm.DB {
-			return tx.Select("id", "name", "file_type", "file_url", "size", "description")
-		}).
-		Select("id", "document_id").
+	tx := app.Database.DB.Model(&model.Document{}).
+		Select("id", "name", "file_type", "file_url", "size", "description").
 		Where("user_id = ?", q.UserID)
+	if q.Search != "" {
+		tx = tx.Where("name ILIKE ? OR file_type ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%")
+	}
+	if q.Status != "" {
+		tx = tx.Where("status = ?", q.Status)
+	}
+	if q.Type != "" {
+		tx = tx.Where("type = ?", q.Type)
+	}
 	tx = tx.Count(&count)
 	if tx.Error != nil {
 		return nil, 0, nil

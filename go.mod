@@ -9,13 +9,17 @@ require (
 	github.com/go-playground/mold/v4 v4.5.1
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.28.0
+	github.com/go-resty/resty/v2 v2.17.1
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.1.2
 	github.com/minio/minio-go/v7 v7.0.97
+	github.com/mitchellh/mapstructure v1.5.0
+	github.com/plutov/paypal v2.0.5+incompatible
 	github.com/samber/lo v1.51.0
 	github.com/samber/slog-multi v1.4.1
+	github.com/shopspring/decimal v1.4.0
 	gorm.io/driver/postgres v1.5.0
 	gorm.io/plugin/opentelemetry v0.1.11
 )
@@ -62,7 +66,7 @@ require (
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/text v0.30.0
+	golang.org/x/text v0.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
