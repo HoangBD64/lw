@@ -100,8 +100,9 @@ type AdminBulkUpsertProcedureStep struct {
 }
 
 type UserCreateProcedureRequest struct {
-	ProcedureID    int                             `json:"procedure_id" validate:"required,gt=0"`
-	ProcedureSteps []UserProcedureStepOverrideData `json:"user_procedure_steps"`
+	ProcedureID     int                             `json:"procedure_id" validate:"required,gt=0"`
+	ProcedureSteps  []UserProcedureStepOverrideData `json:"user_procedure_steps"`
+	UploadSessionID *string                         `json:"upload_session_id,omitempty"`
 }
 
 type UserProcedureStepOverrideData struct {

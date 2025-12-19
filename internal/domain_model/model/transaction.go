@@ -19,8 +19,8 @@ type Transaction struct {
 	Admin           *Admin         `json:"admin,omitempty"`
 	Metadata        datatypes.JSON `json:"metadata"`
 	Note            string         `json:"note"`
-	UserProcedureID int            `json:"user_procedure_id,omitempty"`
-	UserProcedure   UserProcedure  `json:"user_procedure,omitempty"`
+	UserProcedureID *int           `json:"user_procedure_id,omitempty"`
+	UserProcedure   *UserProcedure `json:"user_procedure,omitempty"`
 }
 
 const (

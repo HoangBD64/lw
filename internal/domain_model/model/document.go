@@ -14,14 +14,14 @@ type Document struct {
 	UserID          *uuid.UUID `json:"user_id,omitempty"`
 	User            *User      `json:"user,omitempty"`
 	Name            string     `json:"name"`
-	UserProcedureID int        `json:"user_procedure_id"`
+	UserProcedureID *int       `json:"user_procedure_id"`
 	UpdateBy        string     `json:"update_by,omitempty"`
-	Description     *string    `json:"description,omitempty"`
+	Description     string     `json:"description,omitempty"`
 	FileURL         string     `json:"file_url"`
 	FileType        string     `json:"file_type,omitempty"`
 	DocumentType    string     `json:"document_type,omitempty"`
 	Size            int64      `json:"size,omitempty"`
-	Type            string     `json:"type"` // user | admin
+	Type            string     `json:"type"` // user_upload | admin_upload
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -29,6 +29,6 @@ type Document struct {
 }
 
 const (
-	ADMIN_DOCUMENT = "admin"
-	USER_DOCUMENT  = "user"
+	ADMIN_UPLOAD_DOCUMENT = "admin_upload"
+	USER_UPLOAD_DOCUMENT  = "user_upload"
 )

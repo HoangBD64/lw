@@ -324,7 +324,9 @@ func AdminUpdateUserProcedure(c *fiber.Ctx) error {
 	}
 	up.Status = &input.Status
 	up.Note = &input.Note
-	up.IsLock = input.IsLock
+	if input.IsLock != nil {
+		up.IsLock = input.IsLock
+	}
 	if err := repo.AdminUpdateUserProcedure(&up); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure failed", Error: err})
 	}

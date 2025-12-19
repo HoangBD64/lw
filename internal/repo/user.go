@@ -114,7 +114,8 @@ func UpdateUserDisplayName(user model.User) error {
 func GetReportUserCount(ctx context.Context, startTime, endTime time.Time) (int, error) {
 	var count int64
 
-	tx := app.Database.DB.WithContext(ctx).Model(&model.User{}).Where("created_at BETWEEN ? AND ?", startTime, endTime).Count(&count)
+	tx := app.Database.DB.WithContext(ctx).Model(&model.User{}).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).Count(&count)
 
 	if err := tx.Error; err != nil {
 		return 0, err

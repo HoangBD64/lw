@@ -46,6 +46,10 @@ func GetAdmin(query Query) ([]model.Admin, int64, error) {
 	if query.AdminID != nil {
 		tx = tx.Where("id = ?", query.AdminID)
 	}
+	if query.StartTime != nil && query.EndTime != nil {
+		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
+	}
+
 	var count int64
 	err := tx.Count(&count)
 	err = tx.Offset(query.Limit * (query.Page - 1)).Limit(query.Limit).Order("created_at DESC").Find(&admins)

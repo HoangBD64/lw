@@ -35,10 +35,10 @@ type js = map[string]any
 
 // for logic payment in checkout page
 func GetPaymentInfo(c *fiber.Ctx) error {
-	_, ok := c.Locals("user").(model.User)
-	if !ok {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
-	}
+	// _, ok := c.Locals("user").(model.User)
+	// if !ok {
+	// 	return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	// }
 
 	var query repo.Query
 	query.Parse(c)
@@ -145,7 +145,7 @@ func InitPayment(c *fiber.Ctx) error {
 			AmountDeposit:   input.Deposit,
 			PaymentType:     model.PAYMENT_PAYPAL,
 			Status:          "pending",
-			UserProcedureID: input.UserProcedureID,
+			UserProcedureID: &input.UserProcedureID,
 		}
 		transaction, err := repo.CreateTransaction(c.Context(), new_trans)
 		if err != nil {
@@ -191,7 +191,7 @@ func InitPayment(c *fiber.Ctx) error {
 			Amount:          required,
 			AmountDeposit:   input.Deposit,
 			Status:          "pending",
-			UserProcedureID: input.UserProcedureID,
+			UserProcedureID: &input.UserProcedureID,
 		}
 		transaction, err := repo.CreateTransaction(c.Context(), new_trans)
 		if err != nil {

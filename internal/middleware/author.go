@@ -39,6 +39,8 @@ func AuthorizeAdmin(module string, action string) fiber.Handler {
 		if admin.IsOwner {
 			return c.Next()
 		}
+		// NOTE: tạm thời không check permission cho admin
+		return c.Next()
 		admin_permissions := model.AdminPermission{}
 		if err := json.Unmarshal(admin.Permissions, &admin_permissions); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -79,7 +81,6 @@ func AuthorizeAdmin(module string, action string) fiber.Handler {
 				"error_code": "INVALID_AUTHORIZATION",
 			})
 		}
-
 		return c.Next()
 	}
 }

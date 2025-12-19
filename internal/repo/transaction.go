@@ -91,10 +91,7 @@ func GetTransactionByID(id uuid.UUID) (model.Transaction, error) {
 func GetTransactionDetails(id uuid.UUID, user model.User) (model.Transaction, error) {
 	var pay_his model.Transaction
 	tx := app.Database.DB.Model(&model.Transaction{}).
-		Preload("UserProcedureTransactions").
-		Preload("UserProcedureTransactions.UserProcedure", func(tx *gorm.DB) *gorm.DB {
-			return tx.Select("id", "order_number", "fulfillment_status", "fulfillment_cost", "order_code")
-		}).
+		Preload("UserProcedure").
 		Where("id = ? ", id).First(&pay_his)
 	return pay_his, tx.Error
 }
@@ -136,14 +133,10 @@ func AdminGetTransaction(query Query) ([]model.Transaction, int64, error) {
 func GetTransactionForExports(ctx context.Context, query Query) ([]model.Transaction, error) {
 	var out []model.Transaction
 
-	tx := app.Database.DB.Model(&model.Transaction{}).Where("user_id = ?", query.UserID).
-		Preload("UserProcedureTransactions").
-		Preload("UserProcedureTransactions.UserProcedure", func(tx *gorm.DB) *gorm.DB {
-			return tx.Select("id", "order_number", "fulfillment_status", "fulfillment_cost", "order_code")
-		})
+	tx := app.Database.DB.Model(&model.Transaction{}).Where("user_id = ?", query.UserID).Preload("UserProcedure")
 
 	if query.StartTime != nil && query.EndTime != nil {
-		tx = tx.Where("created_at BETWEEN ? AND ?", query.StartTime, query.EndTime)
+		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
 	}
 
 	tx = tx.Order("created_at DESC").Find(&out)
@@ -169,7 +162,7 @@ func GetReportUserTopupAmount(ctx context.Context, startTime, endTime time.Time)
 	var amount float64
 
 	tx := app.Database.DB.Model(&model.Transaction{}).
-		Where("type = ? AND status = ? AND created_at BETWEEN ? AND ?", model.USER_DEPOSIT, model.COMPLETED, startTime, endTime).
+		Where("type = ? AND status = ? AND created_at >= ? AND created_at <= ?", model.USER_DEPOSIT, model.COMPLETED, startTime, endTime).
 		Select("COALESCE(Sum(amount), 0) as amount").Pluck("amount", &amount)
 
 	if err := tx.Error; err != nil {
@@ -185,7 +178,7 @@ func GetAnalyticFulfillmentAmountTransaction(ctx context.Context, query Query) (
 	tx := app.Database.DB.
 		Model(&model.Transaction{}).
 		Where("transactions.type IN ? ", []string{model.USER_DEPOSIT}).
-		Where("transactions.created_at BETWEEN ? AND ?", query.StartTime, query.EndTime).
+		Where("transactions.created_at >= ? AND transactions.created_at <= ?", query.StartTime, query.EndTime).
 		Where("transactions.status = ?", model.COMPLETED).
 		Joins("Store", app.Database.DB.Select("id", "name", "admin_id"))
 

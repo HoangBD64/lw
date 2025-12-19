@@ -80,7 +80,11 @@ func setupRouter(fiber_app *fiber.App) {
 		return c.JSON(fiber.Map{"status": true})
 	})
 
+	// ---------user---------
 	api_user := fiber_app.Group("/api/user")
+
+	// get payment upblic
+	api_user.Get("/payment/info.json", handler.GetPaymentInfo)
 
 	api_user.Post("/login_sso.json", handler.VerifyUserSSO)
 	api_user.Use(middleware.Authen)
@@ -94,6 +98,7 @@ func setupRouter(fiber_app *fiber.App) {
 
 	// documents
 	api_user.Get("/documents.json", middleware.Author(""), handler.UserGetUserDocuments)
+	api_user.Get("/documents/:id.json", middleware.Author(""), handler.UserGetUserDocument)
 	api_user.Post("/documents.json", middleware.Author(""), handler.UserCreateDocument)
 	api_user.Patch("/documents/:id.json", middleware.Author(""), handler.UserUpdateDocument)
 
@@ -116,7 +121,7 @@ func setupRouter(fiber_app *fiber.App) {
 
 	//payment
 	// setup all info in checkout page: client id, token , ..
-	api_user.Get("/payment/info.json", middleware.Author(""), handler.GetPaymentInfo)
+	// api_user.Get("/payment/info.json", middleware.Author(""), handler.GetPaymentInfo)
 	// setup all thing needed in server: calculate pricing, offer, ...
 	api_user.Post("/payment/init.json", middleware.Author(""), handler.InitPayment)
 	// finish transaction: update needed in server
@@ -129,10 +134,9 @@ func setupRouter(fiber_app *fiber.App) {
 	api_user.Get("/transaction/analytics.json", middleware.Author(""), handler.GetBillingAnalytics)
 	api_user.Get("/transaction/export.json", middleware.Author(""), handler.ExportTransactions)
 
-	// admin
+	// ---------admin---------
 	api_admin := fiber_app.Group("/api/admin")
 	api_admin.Post("/login_sso.json", handler.VerifyAdminSSO)
-
 	api_admin.Use(middleware.AuthenAdmin)
 
 	// admin info

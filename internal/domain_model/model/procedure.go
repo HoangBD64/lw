@@ -21,7 +21,7 @@ type Procedure struct {
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
 	DeletedAt *gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 
-	IsActive       *bool           `json:"is_active" gorm:"index"`
+	IsActive       *bool           `json:"is_active" gorm:"default:true"`
 	DueDate        *int            `json:"due_date"`
 	ProcedureSteps []ProcedureStep `json:"procedure_steps,omitempty"`
 }
@@ -36,7 +36,7 @@ type ProcedureStep struct {
 	Admin       *Admin         `json:"admin,omitempty"`
 	Notes       string         `json:"notes"`
 	Position    int            `json:"position"`
-	IsActive    *bool          `json:"is_active"`
+	IsActive    *bool          `json:"is_active" gorm:"default:true"`
 	Data        datatypes.JSON `json:"data"`
 	Description *string        `json:"description,omitempty"`
 

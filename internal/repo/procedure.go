@@ -43,6 +43,9 @@ func AdminGetProcedures(q Query) ([]model.Procedure, int64, error) {
 	if q.AdminID != nil {
 		tx = tx.Where("admin_id = ?", q.AdminID)
 	}
+	if q.StartTime != nil && q.EndTime != nil {
+		tx = tx.Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime)
+	}
 	tx = tx.Count(&count)
 	if tx.Error != nil {
 		return nil, 0, tx.Error
@@ -145,6 +148,9 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 		})
 	if q.UserID != nil {
 		tx = tx.Where("user_id = ?", q.UserID)
+	}
+	if q.StartTime != nil && q.EndTime != nil {
+		tx = tx.Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime)
 	}
 	if q.Status != "" {
 		tx = tx.Where("status = ?", q.Status)
@@ -249,6 +255,9 @@ func ListUserProceduresByUser(userID uuid.UUID, q Query) ([]model.UserProcedure,
 		Where("user_id = ?", userID)
 	if q.Status != "" {
 		tx = tx.Where("status = ?", q.Status)
+	}
+	if q.StartTime != nil && q.EndTime != nil {
+		tx = tx.Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime)
 	}
 	tx = tx.Count(&count)
 	if tx.Error != nil {
