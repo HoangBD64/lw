@@ -6,9 +6,11 @@ import (
 	repo "core/internal/repo"
 	"core/utils"
 	"core/utils/base"
+	"slices"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 )
 
@@ -223,7 +225,7 @@ func AdminUpdateProcedureStep(c *fiber.Ctx) error {
 	}
 	step, err := repo.AdminGetProcedureStepByID(idInt)
 	if err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Get Procedure Step Failed", Error: err})
+		return c.JSON(base.BaseResponse{Status: false, Message: "", Error: err})
 	}
 
 	step.ID = idInt
@@ -259,6 +261,70 @@ func AdminDeleteProcedureStep(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't DeleteProcedureStep", Error: err})
 	}
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
+}
+
+func AdminAssignLawyerToProcedureStep(c *fiber.Ctx) error {
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
+	if !admin.IsAdmin() || !admin.IsOwner {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to assign"})
+	}
+
+	idParam := c.Params("id")
+	userProcedureID, err := strconv.Atoi(idParam)
+	if err != nil || userProcedureID == 0 {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid user procedure id", Error: err})
+	}
+
+	var input domain.AdminAssignLawyerToProcedureStepRequest
+	if err := c.BodyParser(&input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
+	}
+	if err := appUtils.Validate(c.Context(), &input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Validation failed", Error: err})
+	}
+
+	adminIDs := make([]uuid.UUID, 0)
+	stepIDs := make([]int, 0)
+	assignMap := make(map[int]*uuid.UUID)
+	for _, asn := range input.AssignLawyerToProcedureSteps {
+		stepIDs = append(stepIDs, asn.UserProcedureStepID)
+		adminIDs = append(adminIDs, *asn.AdminID)
+		assignMap[asn.UserProcedureStepID] = asn.AdminID
+	}
+
+	if len(adminIDs) > 0 {
+		admins, err := repo.GetAdminByIds(adminIDs)
+		if err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "Fetch admins failed", Error: err})
+		}
+		for _, a := range admins {
+			if !a.IsLawyer() {
+				return c.JSON(base.BaseResponse{Status: false, Message: "Assigned admin must be a lawyer"})
+			}
+		}
+	}
+
+	ups, err := repo.GetUserProcedureStepsByUserProcedureAndStepIDs(userProcedureID, stepIDs)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Fetch user procedure steps failed", Error: err})
+	}
+	if len(ups) != len(stepIDs) {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Some procedure steps not found in this user procedure"})
+	}
+	for i := range ups {
+		if adminID, ok := assignMap[ups[i].ID]; ok {
+			ups[i].AdminID = adminID
+		}
+	}
+
+	updated, err := repo.BulkAssignLawyerAdminToUserProcedureSteps(ups)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Assign lawyer failed", Error: err})
+	}
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: updated})
 }
 
 func AdminListProcedureSteps(c *fiber.Ctx) error {
@@ -324,9 +390,6 @@ func AdminUpdateUserProcedure(c *fiber.Ctx) error {
 	}
 	up.Status = &input.Status
 	up.Note = &input.Note
-	if input.IsLock != nil {
-		up.IsLock = input.IsLock
-	}
 	if err := repo.AdminUpdateUserProcedure(&up); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure failed", Error: err})
 	}
@@ -386,6 +449,85 @@ func AdminUnassignUserProcedure(c *fiber.Ctx) error {
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
+func AdminUpdateUserProcedureStepStatus(c *fiber.Ctx) error {
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
+	}
+	if !admin.IsAdmin() && !admin.IsOwner {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to update step status"})
+	}
+	var input domain.AdminUpdateUserProcedureStepStatusRequest
+	if err := c.BodyParser(&input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
+	}
+	if err := appUtils.Validate(c.Context(), &input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Validation failed", Error: err})
+	}
+	ups, err := repo.GetUserProcedureStepByID(input.UserProcedureStepID)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure step failed", Error: err})
+	}
+	userProcedure, err := repo.GetUserProcedureByID(ups.UserProcedureID)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure failed", Error: err})
+	}
+	if admin.IsLawyer() {
+		if userProcedure.AdminID == nil || *userProcedure.AdminID != admin.ID {
+			return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to manage this procedure"})
+		}
+	}
+	ups.Status = input.Status
+	if err := repo.UpdateUserProcedureStep(&ups); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure step failed", Error: err})
+	}
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
+}
+
+func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
+	}
+	if !admin.IsAdmin() && !admin.IsOwner {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to update step"})
+	}
+	idParam := c.Params("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil || id == 0 {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid id", Error: err})
+	}
+	var input domain.AdminUserUpdateProcedureStepRequest
+	if err := c.BodyParser(&input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
+	}
+	ups, err := repo.GetUserProcedureStepByID(id)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure step failed", Error: err})
+	}
+	userProcedure, err := repo.GetUserProcedureByID(ups.UserProcedureID)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure failed", Error: err})
+	}
+	if admin.IsLawyer() {
+		if userProcedure.AdminID == nil || *userProcedure.AdminID != admin.ID {
+			return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to manage this procedure"})
+		}
+	}
+	ups.Notes = input.Notes
+	ups.FeedBack = input.FeedBack
+	if input.Status == model.USER_PROCEDURE_STEP_ERROR {
+		UserUpdatedFalse := false
+		ups.UserUpdated = &UserUpdatedFalse
+	}
+	ups.Status = input.Status
+
+	if err := repo.UpdateUserProcedureStep(&ups); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure step failed", Error: err})
+	}
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
+}
+
 func UserGetProcedures(c *fiber.Ctx) error {
 	var q repo.Query
 	q.Parse(c)
@@ -441,14 +583,13 @@ func MappingProcedureStepsToUserProcedureSteps(procedureSteps []model.ProcedureS
 		userProcedureStep := model.UserProcedureStep{
 			UserProcedureID: userProcedureID,
 			ProcedureStepID: step.ID,
-			Status:          model.PROCEDURE_STEP_TODO,
+			Status:          model.USER_PROCEDURE_STEP_PENDING,
 			Data:            step.Data,
 			Name:            step.Name,
 			DueDate:         step.DueDate,
 			AdminID:         step.AdminID,
 			Notes:           step.Notes,
 			Position:        step.Position,
-			IsActive:        step.IsActive,
 			Description:     step.Description,
 		}
 		userProcedureSteps = append(userProcedureSteps, userProcedureStep)
@@ -492,6 +633,7 @@ func UserCreateProcedure(c *fiber.Ctx) error {
 	userProcedure := model.UserProcedure{
 		UserID:       &user.ID,
 		ProcedureID:  input.ProcedureID,
+		Title:        &input.Title,
 		Status:       &status,
 		IsHaveTicket: &isHaveTicket,
 		Name:         procedure.Name,
@@ -533,7 +675,7 @@ func UserCreateProcedure(c *fiber.Ctx) error {
 }
 
 func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
-	user, ok := c.Locals("user").(model.User)
+	_, ok := c.Locals("user").(model.User)
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
 	}
@@ -550,11 +692,24 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure step failed", Error: err})
 	}
-	_, err = repo.GetUserProcedureByID(user.ID, ups.UserProcedureID)
+
+	allowStatus := []string{
+		model.USER_PROCEDURE_STEP_PENDING,
+		model.USER_PROCEDURE_STEP_ERROR,
+	}
+	if !slices.Contains(allowStatus, ups.Status) {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Status not allowed"})
+	}
+	_, err = repo.GetUserProcedureByID(ups.UserProcedureID)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure failed", Error: err})
 	}
 	ups.Data = input.Data
+	if ups.Status == model.USER_PROCEDURE_STEP_ERROR {
+		UserUpdatedFalse := false
+		ups.UserUpdated = &UserUpdatedFalse
+		ups.Status = model.USER_PROCEDURE_STEP_PENDING
+	}
 	if err := repo.UpdateUserProcedureStep(&ups); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure step failed", Error: err})
 	}

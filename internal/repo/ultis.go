@@ -35,7 +35,7 @@ type Query struct {
 	Hidden    *bool      `query:"hidden"`
 
 	// Ticket/document filters
-	DocumentID        *int   `query:"document_id" json:"document_id,omitempty"`
+	TicketID          *int   `query:"ticket_id"  json:"ticket_id,omitempty"`
 	UserProcedureID   *int   `query:"user_procedure_id" json:"user_procedure_id,omitempty"`
 	TicketStatusRead  *bool  `query:"ticket_status_read" json:"ticket_status_read,omitempty"`
 	TicketStatus      string `query:"ticket_status" json:"ticket_status,omitempty"`
@@ -57,7 +57,7 @@ func (query *Query) Parse(c *fiber.Ctx) {
 	}
 }
 
-func (q *Query) ParseForAdmin(c *fiber.Ctx, admin model.Admin) error {
+func (q *Query) ParseForLawyer(c *fiber.Ctx, admin model.Admin) error {
 	q.Parse(c)
 	if admin.IsLawyer() {
 		q.AdminID = &admin.ID

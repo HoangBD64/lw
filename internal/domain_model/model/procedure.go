@@ -55,10 +55,11 @@ type UserProcedureStep struct {
 	Admin           *Admin         `json:"admin,omitempty"`
 	Notes           string         `json:"notes"`
 	Position        int            `json:"position"`
-	IsActive        *bool          `json:"is_active"`
-	Status          string         `json:"status" gorm:"index"`
+	Status          string         `json:"status" gorm:"index"` // pending|processing|error|done
 	Data            datatypes.JSON `json:"data"`
+	FeedBack        datatypes.JSON `json:"feedback"`
 	Description     *string        `json:"description,omitempty"`
+	UserUpdated     *bool          `json:"user_updated,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -75,13 +76,13 @@ type UserProcedure struct {
 	Admin               *Admin              `json:"admin,omitempty"`
 	Name                string              `json:"name"`
 	IsHaveTicket        *bool               `json:"is_have_ticket,omitempty"`
-	Status              *string             `json:"status" gorm:"index"` // created | pending | completed
+	Status              *string             `json:"status" gorm:"index"`
 	Note                *string             `json:"note"`
-	IsLock              *bool               `json:"is_lock" gorm:"default:false"`
 	DueDate             *int                `json:"due_date"`
 	UserProcedureSteps  []UserProcedureStep `json:"user_procedure_steps,omitempty"`
 	Cost                *float64            `json:"cost,omitempty"`
 	FulfillmentStatus   *string             `json:"fulfillment_status,omitempty"`
+	Title               *string             `json:"title,omitempty"`
 	FulfillmentCostPaid *time.Time          `json:"fulfillment_cost_paid,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
@@ -99,6 +100,12 @@ const (
 	USER_PROCEDURE_PENDING    = "pending"
 	USER_PROCEDURE_PROCESSING = "processing"
 	USER_PROCEDURE_COMPLETED  = "completed"
+	USER_PROCEDURE_ERROR      = "error"
+
+	USER_PROCEDURE_STEP_PENDING    = "pending"
+	USER_PROCEDURE_STEP_PROCESSING = "processing"
+	USER_PROCEDURE_STEP_COMPLETED  = "completed"
+	USER_PROCEDURE_STEP_ERROR      = "error"
 
 	FULFILLMENT_PAID = "paid"
 )

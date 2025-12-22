@@ -108,7 +108,7 @@ func GetAdmin(c *fiber.Ctx) error {
 	}
 
 	var query repo.Query
-	query.ParseForAdmin(c, admin)
+	query.ParseForLawyer(c, admin)
 
 	admins, total, err := repo.GetAdmin(query)
 	if err != nil {
@@ -207,7 +207,7 @@ func GetAllAdmin(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
 	}
 	var query repo.Query
-	query.ParseForAdmin(c, admin)
+	query.ParseForLawyer(c, admin)
 
 	admins, err := repo.GetAllAdmin(c.Context(), query)
 	if err != nil {

@@ -102,7 +102,7 @@ type AdminBulkUpsertProcedureStep struct {
 type UserCreateProcedureRequest struct {
 	ProcedureID     int                             `json:"procedure_id" validate:"required,gt=0"`
 	ProcedureSteps  []UserProcedureStepOverrideData `json:"user_procedure_steps"`
-	UploadSessionID *string                         `json:"upload_session_id,omitempty"`
+	Title           string                          `json:"title,omitempty"`
 }
 
 type UserProcedureStepOverrideData struct {
@@ -127,4 +127,24 @@ type AdminUpdateUserProcedureRequest struct {
 	Status string `json:"status"`
 	Note   string `json:"note"`
 	IsLock *bool  `json:"is_lock"`
+}
+
+type AdminAssignLawyerToProcedureStepRequest struct {
+	AssignLawyerToProcedureSteps []AssignLawyerToProcedureStep `json:"assignments" validate:"required,gt=0"`
+}
+
+type AssignLawyerToProcedureStep struct {
+	UserProcedureStepID int        `json:"user_procedure_step_id" validate:"required,gt=0"`
+	AdminID             *uuid.UUID `json:"admin_id"`
+}
+
+type AdminUpdateUserProcedureStepStatusRequest struct {
+	UserProcedureStepID int    `json:"user_procedure_step_id" validate:"required,gt=0"`
+	Status              string `json:"status" validate:"required"`
+}
+
+type AdminUserUpdateProcedureStepRequest struct {
+	FeedBack datatypes.JSON `json:"feedback"`
+	Notes    string         `json:"notes"`
+	Status   string         `json:"status"`
 }

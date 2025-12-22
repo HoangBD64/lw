@@ -83,10 +83,34 @@ func AdminGetProcedureStepByID(id int) (model.ProcedureStep, error) {
 	return step, tx.Error
 }
 
+func GetUserProcedureStepsByUserProcedureAndStepIDs(userProcedureID int, stepIDs []int) ([]model.UserProcedureStep, error) {
+	var ups []model.UserProcedureStep
+	tx := app.Database.DB.Model(&model.UserProcedureStep{}).
+		Where("user_procedure_id = ? AND id IN ?", userProcedureID, stepIDs).
+		Find(&ups)
+	return ups, tx.Error
+}
+
+func BulkAssignLawyerAdminToUserProcedureSteps(ups []model.UserProcedureStep) (int64, error) {
+	err := app.Database.DB.Transaction(func(tx *gorm.DB) error {
+		for _, u := range ups {
+			if err := tx.Model(&model.UserProcedureStep{}).
+				Where("id = ?", u.ID).
+				Updates(map[string]any{"admin_id": u.AdminID}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ups)), nil
+}
 func UserGetProcedureSteps(procedureID int) ([]model.ProcedureStep, error) {
 	var steps []model.ProcedureStep
 	tx := app.Database.DB.Model(&model.ProcedureStep{}).
-		Where("procedure_id = ? AND is_active = ?", procedureID, true).
+		Where("procedure_id = ?", procedureID).
 		Order("position ASC").
 		Find(&steps)
 	return steps, tx.Error
@@ -202,20 +226,29 @@ func GetUserProcedureByProcedureID(userID uuid.UUID, procedureID int) (model.Use
 	return up, err
 }
 
-func GetUserProcedureByID(userID uuid.UUID, userProcedureID int) (model.UserProcedure, error) {
+func GetUserProcedureByID(userProcedureID int) (model.UserProcedure, error) {
 	var up model.UserProcedure
 	err := app.Database.DB.Model(&model.UserProcedure{}).
 		Preload("UserProcedureSteps").
 		Omit("Procedure").
-		Where("user_id = ? AND id = ?", userID, userProcedureID).
+		Where("id = ?", userProcedureID).
 		First(&up).Error
 	return up, err
 }
 
 func AssignAdminToUserProcedures(userProcedureIDs []int, adminID uuid.UUID) (int64, error) {
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
-		Where("id IN ?", userProcedureIDs).
-		Updates(map[string]any{"admin_id": adminID})
+		Where("id IN ? AND status = ?", userProcedureIDs, model.USER_PROCEDURE_PENDING).
+		Updates(map[string]any{
+			"admin_id": adminID,
+			"status":   model.USER_PROCEDURE_PROCESSING,
+		})
+
+	tx = app.Database.DB.Model(&model.UserProcedureStep{}).
+		Where("user_procedure_id IN ? AND status = ?", userProcedureIDs, model.USER_PROCEDURE_STEP_PENDING).
+		Updates(map[string]any{
+			"status": model.USER_PROCEDURE_STEP_PROCESSING,
+		})
 	return tx.RowsAffected, tx.Error
 }
 
@@ -223,6 +256,12 @@ func UnassignAdminFromUserProcedure(userProcedureID int) error {
 	return app.Database.DB.Model(&model.UserProcedure{}).
 		Where("id = ?", userProcedureID).
 		Updates(map[string]any{"admin_id": nil}).Error
+}
+
+func MarkUserProcedureHasTicket(userProcedureID int, has bool) error {
+	return app.Database.DB.Model(&model.UserProcedure{}).
+		Where("id = ?", userProcedureID).
+		Updates(map[string]any{"is_have_ticket": has}).Error
 }
 
 func AdminGetUserProcedureDetailByID(userProcedureID int) (model.UserProcedure, error) {
@@ -252,6 +291,7 @@ func ListUserProceduresByUser(userID uuid.UUID, q Query) ([]model.UserProcedure,
 		count int64
 	)
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
+		Preload("UserProcedureSteps", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "user_procedure_id","status","position","name") }).
 		Where("user_id = ?", userID)
 	if q.Status != "" {
 		tx = tx.Where("status = ?", q.Status)
@@ -303,7 +343,6 @@ func CreateUserProcedureWithSteps(userID uuid.UUID, baseProcedure model.Procedur
 				AdminID:         bs.AdminID,
 				Notes:           bs.Notes,
 				Position:        bs.Position,
-				IsActive:        bs.IsActive,
 				Status:          model.PROCEDURE_STEP_TODO,
 				Data:            bs.Data,
 			})

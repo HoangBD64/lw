@@ -4,7 +4,6 @@ import (
 	"core/app"
 	"core/internal/domain_model/model"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -13,106 +12,13 @@ func CreateTicket(ticket model.Ticket) (model.Ticket, error) {
 	return ticket, tx.Error
 }
 
-// Removed: order-based ticket queries (system uses documents only)
-
-func GetTicketDocument(query Query) ([]model.Ticket, int64, error) {
+func GetTickets(query Query) ([]model.Ticket, int64, error) {
 	var tickets []model.Ticket
 	var count int64
 
 	tx := app.Database.DB.Model(&model.Ticket{})
-	if query.UserProcedureID != nil {
-		tx = tx.Where("user_procedure_id = ?", *query.UserProcedureID)
-	}
-
-	if query.TicketStatusRead != nil {
-		if *query.TicketStatusRead {
-			tx = tx.Where("tickets.read_at IS NOT NULL")
-		} else {
-			tx = tx.Where("tickets.read_at IS NULL")
-		}
-	}
-	if query.TicketStatus != "" {
-		tx = tx.Where("tickets.status = ?", query.TicketStatus)
-	}
-	if query.TicketCategory != "" {
-		tx = tx.Where("tickets.category = ?", query.TicketCategory)
-	}
-	if query.TicketSubCategory != "" {
-		tx = tx.Where("tickets.sub_category = ?", query.TicketSubCategory)
-	}
-	if query.TicketResolution != "" {
-		tx = tx.Where("tickets.resolution_type = ?", query.TicketResolution)
-	}
-
-	if err := tx.Distinct().Count(&count).Error; err != nil {
-		return nil, 0, err
-	}
-
-	err := tx.Distinct().
-		Offset(query.Limit * (query.Page - 1)).
-		Limit(query.Limit).
-		Order("tickets.created_at DESC").
-		Find(&tickets).Error
-
-	return tickets, count, err
-}
-
-// Get tickets linked to any of the provided user_document_ids
-func GetTicketsByUserDocumentIDs(ids []int, q Query) ([]model.Ticket, int64, error) {
-	var tickets []model.Ticket
-	var count int64
-
-	// Deprecated: switch to filtering by user_procedure_id if provided
-	if q.UserProcedureID != nil {
-		return GetTicketDocument(Query{Limit: q.Limit, Page: q.Page, TicketStatusRead: q.TicketStatusRead, TicketStatus: q.TicketStatus, TicketCategory: q.TicketCategory, TicketSubCategory: q.TicketSubCategory, TicketResolution: q.TicketResolution, UserProcedureID: q.UserProcedureID})
-	}
-
-	if len(ids) == 0 {
-		return []model.Ticket{}, 0, nil
-	}
-
-	tx := app.Database.DB.Model(&model.Ticket{}).
-		Joins("JOIN user_document_tickets ON tickets.id = user_document_tickets.ticket_id").
-		Where("user_document_tickets.user_document_id IN ?", ids)
-
-	if q.TicketStatusRead != nil {
-		if *q.TicketStatusRead {
-			tx = tx.Where("tickets.read_at IS NOT NULL")
-		} else {
-			tx = tx.Where("tickets.read_at IS NULL")
-		}
-	}
-	if q.TicketStatus != "" {
-		tx = tx.Where("tickets.status = ?", q.TicketStatus)
-	}
-	if q.TicketCategory != "" {
-		tx = tx.Where("tickets.category = ?", q.TicketCategory)
-	}
-	if q.TicketSubCategory != "" {
-		tx = tx.Where("tickets.sub_category = ?", q.TicketSubCategory)
-	}
-	if q.TicketResolution != "" {
-		tx = tx.Where("tickets.resolution_type = ?", q.TicketResolution)
-	}
-
-	if err := tx.Distinct().Count(&count).Error; err != nil {
-		return nil, 0, err
-	}
-
-	err := tx.Distinct().
-		Offset(q.Limit * (q.Page - 1)).
-		Limit(q.Limit).
-		Order("tickets.created_at DESC").
-		Find(&tickets).Error
-
-	return tickets, count, err
-}
-
-func GetTicket(query Query) ([]model.Ticket, int64, error) {
-	var tickets []model.Ticket
-	var count int64
-
-	tx := app.Database.DB.Model(&model.Ticket{})
+	sub := app.Database.DB.Model(&model.UserProcedure{}).Select("id").Where("user_id = ?", *query.UserID)
+	tx = tx.Where("user_procedure_id IN (?)", sub)
 	if query.UserProcedureID != nil {
 		tx = tx.Where("user_procedure_id = ?", *query.UserProcedureID)
 	}
@@ -130,9 +36,6 @@ func GetTicket(query Query) ([]model.Ticket, int64, error) {
 	if query.TicketCategory != "" {
 		tx = tx.Where("category = ?", query.TicketCategory)
 	}
-	if query.TicketSubCategory != "" {
-		tx = tx.Where("sub_category = ?", query.TicketSubCategory)
-	}
 	if query.TicketResolution != "" {
 		tx = tx.Where("resolution_type = ?", query.TicketResolution)
 	}
@@ -140,15 +43,18 @@ func GetTicket(query Query) ([]model.Ticket, int64, error) {
 		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
 	}
 
-	if err := tx.Count(&count).Error; err != nil {
-		return nil, 0, err
+	tx = tx.Count(&count)
+	if tx.Error != nil {
+		return nil, 0, tx.Error
 	}
-	err := tx.Offset(query.Limit * (query.Page - 1)).Limit(query.Limit).Order("created_at DESC").Find(&tickets).Error
+	tx = tx.Scopes(pagination(query.Page, query.Limit)).
+		Order("created_at DESC").
+		Find(&tickets)
 
-	return tickets, count, err
+	return tickets, count, tx.Error
 }
 
-func GetTicketDetail(id uuid.UUID, user model.User) (model.Ticket, error) {
+func GetTicketDetail(id int, user model.User) (model.Ticket, error) {
 	var ticket model.Ticket
 	tx := app.Database.DB.Model(&model.Ticket{}).Debug().Where("id = ?", id).
 		Preload("TicketContents", func(tx *gorm.DB) *gorm.DB {
@@ -164,7 +70,7 @@ func GetTicketDetail(id uuid.UUID, user model.User) (model.Ticket, error) {
 		}).First(&ticket)
 	return ticket, tx.Error
 }
-func GetTicketByID(id uuid.UUID, user model.User) (model.Ticket, error) {
+func GetTicketByID(id int, user model.User) (model.Ticket, error) {
 	var ticket model.Ticket
 	tx := app.Database.DB.Model(&model.Ticket{}).Where("id = ?", id).First(&ticket)
 	return ticket, tx.Error
@@ -180,8 +86,6 @@ func CreateUserDocumentTicket(items []model.UserDocumentTicket) ([]model.UserDoc
 	return items, tx.Error
 }
 
-// Removed: order ID aggregation (documents only)
-
 func CreateTicketContent(new model.TicketContent) (model.TicketContent, error) {
 	tx := app.Database.DB.Model(&model.TicketContent{}).Create(&new)
 	return new, tx.Error
@@ -192,13 +96,13 @@ func UpdateTicket(ticket model.Ticket) (model.Ticket, error) {
 	return ticket, tx.Error
 }
 
-func AdminGetTicketByID(id uuid.UUID) (model.Ticket, error) {
+func AdminGetTicketByID(id int) (model.Ticket, error) {
 	var ticket model.Ticket
 	tx := app.Database.DB.Model(&model.Ticket{}).Where("id = ? ", id).First(&ticket)
 	return ticket, tx.Error
 }
 
-func AdminGetTicketDetail(id uuid.UUID) (model.Ticket, error) {
+func AdminGetTicketDetail(id int) (model.Ticket, error) {
 	var ticket model.Ticket
 	tx := app.Database.DB.Model(&model.Ticket{}).Debug().Where("id = ? ", id).Preload("TicketContents", func(tx *gorm.DB) *gorm.DB {
 		tx = tx.Preload("User", func(tx *gorm.DB) *gorm.DB {
@@ -218,42 +122,46 @@ func AdminGetTickets(query Query) ([]model.Ticket, int64, error) {
 	var tickets []model.Ticket
 	var count int64
 
-	tx := app.Database.DB.Model(&model.Ticket{})
+	tx := app.Database.DB.Debug().Model(&model.Ticket{})
+
+	if query.UserID != nil {
+		sub := app.Database.DB.Model(&model.UserProcedure{}).Select("id").Where("user_id = ?", *query.UserID)
+		tx = tx.Where("user_procedure_id IN (?)", sub)
+	}
 	if query.UserProcedureID != nil {
-		tx = tx.Where("tickets.user_procedure_id = ?", *query.UserProcedureID)
+		tx = tx.Where("user_procedure_id = ?", *query.UserProcedureID)
 	}
 	if query.TicketStatusRead != nil {
 		if *query.TicketStatusRead {
-			tx = tx.Where("tickets.admin_read_at IS NOT NULL")
+			tx = tx.Where("admin_read_at IS NOT NULL")
 		} else {
-			tx = tx.Where("tickets.admin_read_at IS NULL")
+			tx = tx.Where("admin_read_at IS NULL")
 		}
 	}
 	if query.TicketStatus != "" {
-		tx = tx.Where("tickets.status = ?", query.TicketStatus)
+		tx = tx.Where("status = ?", query.TicketStatus)
 	}
 	if query.TicketCategory != "" {
-		tx = tx.Where("tickets.category = ?", query.TicketCategory)
+		tx = tx.Where("category = ?", query.TicketCategory)
 	}
 	if query.TicketSubCategory != "" {
-		tx = tx.Where("tickets.sub_category = ?", query.TicketSubCategory)
+		tx = tx.Where("sub_category = ?", query.TicketSubCategory)
 	}
 	if query.TicketResolution != "" {
-		tx = tx.Where("tickets.resolution_type = ?", query.TicketResolution)
+		tx = tx.Where("resolution_type = ?", query.TicketResolution)
 	}
 	if query.StartTime != nil && query.EndTime != nil {
-		tx = tx.Where("tickets.created_at >= ? AND tickets.created_at <= ?", query.StartTime, query.EndTime)
-	}
-	if err := tx.Distinct().Count(&count).Error; err != nil {
-		return nil, 0, err
+		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
 	}
 
-	err := tx.Distinct().
-		Offset(query.Limit * (query.Page - 1)).
-		Limit(query.Limit).
-		Order("tickets.created_at DESC").
-		Find(&tickets).Error
+	tx = tx.Count(&count)
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	tx = tx.Scopes(pagination(query.Page, query.Limit)).
+		Order("created_at DESC").
+		Find(&tickets)
 
-	return tickets, count, err
+	return tickets, count, tx.Error
 
 }

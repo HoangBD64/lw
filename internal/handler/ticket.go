@@ -3,6 +3,7 @@ package handler
 import (
 	"core/internal/domain_model/model"
 	"core/internal/repo"
+	"core/utils/base"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,13 +14,12 @@ import (
 func CreateTicket(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 
 	type request struct {
 		UserProcedureID int            `json:"user_procedure_id"`
 		Category        string         `json:"category"`
-		SubCategory     string         `json:"sub_category"`
 		PreferSolution  string         `json:"prefer_solution"`
 		Description     string         `json:"description"`
 		Attachments     datatypes.JSON `json:"attachments"`
@@ -27,14 +27,14 @@ func CreateTicket(c *fiber.Ctx) error {
 	var input request
 
 	if err := c.BodyParser(&input); err != nil {
-		return c.JSON(fiber.Map{"status": false, "error": "Invalid request body", "err": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid request body"})
 	}
 
 	if input.UserProcedureID <= 0 {
-		return c.JSON(fiber.Map{"status": false, "error": "user_procedure_id can't be empty"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "user_procedure_id can't be empty"})
 	}
-	if _, err := repo.GetUserProcedureByID(user.ID, input.UserProcedureID); err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't find user_procedure for this user", "error": err.Error()})
+	if _, err := repo.GetUserProcedureByID(input.UserProcedureID); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't find user_procedure for this user", Error: err})
 	}
 	new_ticket_content := model.TicketContent{
 		Attachment: input.Attachments,
@@ -44,31 +44,32 @@ func CreateTicket(c *fiber.Ctx) error {
 	new_ticket := model.Ticket{
 		Status:          model.TICKET_OPEN,
 		Category:        input.Category,
-		SubCategory:     input.SubCategory,
 		PreferSolution:  input.PreferSolution,
 		TicketContents:  []model.TicketContent{new_ticket_content},
 		UserProcedureID: &input.UserProcedureID,
 	}
-	_, err1 := repo.CreateTicket(new_ticket)
-	if err1 != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't CreateTicket", "error": err1.Error()})
+	_, err := repo.CreateTicket(new_ticket)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't CreateTicket", Error: err})
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success"})
+	// Mark user procedure as having ticket
+	_ = repo.MarkUserProcedureHasTicket(input.UserProcedureID, true)
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
 func GetTicketDetail(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	var query repo.Query
 	query.Parse(c)
-	if query.ID == nil {
-		return c.JSON(fiber.Map{"status": false, "message": "id can't empty"})
+	if query.TicketID == nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "id can't empty"})
 	}
-	ticket, err := repo.GetTicketDetail(*query.ID, user)
+	ticket, err := repo.GetTicketDetail(*query.TicketID, user)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTicketDetail", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTicketDetail", Error: err})
 	}
 	if ticket.ReadAt == nil {
 		now := time.Now()
@@ -76,7 +77,6 @@ func GetTicketDetail(c *fiber.Ctx) error {
 		repo.UpdateTicket(ticket)
 	}
 
-	// hide admin_id
 	for i := range ticket.TicketContents {
 		ticket.TicketContents[i].AdminID = nil
 
@@ -84,38 +84,38 @@ func GetTicketDetail(c *fiber.Ctx) error {
 			ticket.TicketContents[i].Admin.ID = uuid.Nil
 		}
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "ticket": ticket})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: ticket})
 }
 
 func CreateTicketContent(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	type request struct {
-		TicketID    *uuid.UUID     `json:"ticket_id"`
+		TicketID    *int           `json:"ticket_id"`
 		Description string         `json:"description"`
 		Attachments datatypes.JSON `json:"attachments"`
 	}
 	var input request
 
 	if err := c.BodyParser(&input); err != nil {
-		return c.JSON(fiber.Map{"status": false, "error": "Invalid request body", "err": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid request body", Error: err})
 	}
 	if input.TicketID == nil {
-		return c.JSON(fiber.Map{"status": false, "error": "ticket_id can't empty"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "ticket_id can't empty"})
 	}
 	ticket, err := repo.GetTicketByID(*input.TicketID, user)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTicketByID", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTicketByID", Error: err})
 	}
 	if ticket.Status == model.TICKET_RESOLVED {
-		return c.JSON(fiber.Map{"status": false, "message": "ticket is in resolved status"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "ticket is in resolved status"})
 	}
 
 	ticket.AdminReadAt = nil
 	if _, err := repo.UpdateTicket(ticket); err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "could not update ticket read time", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "could not update ticket read time", Error: err})
 	}
 
 	new_ticket_content := model.TicketContent{
@@ -125,121 +125,93 @@ func CreateTicketContent(c *fiber.Ctx) error {
 		Content:    input.Description,
 	}
 
-	_, err1 := repo.CreateTicketContent(new_ticket_content)
-	if err1 != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't CreateTicketContent", "error": err1.Error()})
+	_, err = repo.CreateTicketContent(new_ticket_content)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't CreateTicketContent", Error: err})
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success"})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 func UpdateStatusTicket(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	type request struct {
-		ID     *uuid.UUID `json:"id"`
-		Status string     `json:"status"`
+		TicketID *int   `json:"ticket_id"`
+		Status   string `json:"status"`
 	}
 	var input request
 
 	if err := c.BodyParser(&input); err != nil {
-		return c.JSON(fiber.Map{"status": false, "error": "Invalid request body", "err": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid request body", Error: err})
 	}
-	if input.ID == nil {
-		return c.JSON(fiber.Map{"status": false, "error": "id can't empty"})
+	if input.TicketID == nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "ticket_id can't empty"})
 	}
-	ticket, err := repo.GetTicketByID(*input.ID, user)
+	ticket, err := repo.GetTicketByID(*input.TicketID, user)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTicketByID", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTicketByID", Error: err})
 	}
 	if input.Status != model.TICKET_RESOLVED && input.Status != model.TICKET_UNRESOLVED {
-		return c.JSON(fiber.Map{"status": false, "message": "can only change state to 'unresolved' or 'resolved'"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "can only change state to 'unresolved' or 'resolved'"})
 	}
 
 	if input.Status == ticket.Status {
-		return c.JSON(fiber.Map{"status": false, "message": "ticket is already in this state"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "ticket is already in this state"})
 	} else {
 		ticket.Status = input.Status
 	}
-	_, err1 := repo.UpdateTicket(ticket)
-	if err1 != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't UpdateStatusTicket", "error": err1.Error()})
+	_, err = repo.UpdateTicket(ticket)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't UpdateStatusTicket", Error: err})
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success"})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
-func GetTicketProcedure(c *fiber.Ctx) error {
-	var query repo.Query
-	query.Parse(c)
-	if query.UserProcedureID == nil {
-		return c.JSON(fiber.Map{"status": false, "message": "user_procedure_id can't be empty"})
-	}
-	ticket, total, err := repo.GetTicketDocument(query)
-	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTickets", "error": err.Error()})
-	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "tickets": ticket, "total": total})
-}
 func GetTickets(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(model.User)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
 	var query repo.Query
 	query.Parse(c)
-	ticket, total, err := repo.GetTicket(query)
+	query.UserID = &user.ID
+	tickets, total, err := repo.GetTickets(query)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTickets", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTickets", Error: err})
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "tickets": ticket, "total": total})
-}
-
-// List tickets by multiple user_document_ids
-func GetTicketsByUserDocuments(c *fiber.Ctx) error {
-	type req struct {
-		UserProcedureID *int `json:"user_procedure_id"`
-	}
-	var body req
-	if err := c.BodyParser(&body); err != nil {
-		return c.JSON(fiber.Map{"status": false, "error": "Invalid request body", "err": err.Error()})
-	}
-	var q repo.Query
-	q.Parse(c)
-	if body.UserProcedureID != nil {
-		q.UserProcedureID = body.UserProcedureID
-	}
-	tickets, total, err := repo.GetTicketDocument(q)
-	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTicketsByUserDocumentIDs", "error": err.Error()})
-	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "tickets": tickets, "total": total})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: tickets, Total: &total})
 }
 
 func AdminCreateTicketContent(c *fiber.Ctx) error {
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	type request struct {
-		TicketID    *uuid.UUID     `json:"ticket_id"`
+		TicketID    *int           `json:"ticket_id"`
 		Description string         `json:"description"`
 		Attachments datatypes.JSON `json:"attachments"`
 	}
 	var input request
 
 	if err := c.BodyParser(&input); err != nil {
-		return c.JSON(fiber.Map{"status": false, "error": "Invalid request body", "err": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid request body", Error: err})
 	}
 	if input.TicketID == nil {
-		return c.JSON(fiber.Map{"status": false, "error": "ticket_id can't empty"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "ticket_id can't empty"})
 	}
 	ticket, err := repo.AdminGetTicketByID(*input.TicketID)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTicketByID", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTicketByID", Error: err})
 	}
 	if ticket.Status == model.TICKET_RESOLVED {
-		return c.JSON(fiber.Map{"status": false, "message": "ticket is in resolved status"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "ticket is in resolved status"})
 	}
 
 	ticket.ReadAt = nil
 	if _, err := repo.UpdateTicket(ticket); err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "could not update ticket read time", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "could not update ticket read time", Error: err})
 	}
 
 	new_ticket_content := model.TicketContent{
@@ -249,27 +221,27 @@ func AdminCreateTicketContent(c *fiber.Ctx) error {
 		Content:    input.Description,
 	}
 
-	_, err1 := repo.CreateTicketContent(new_ticket_content)
-	if err1 != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't CreateTicketContent", "error": err1.Error()})
+	_, err = repo.CreateTicketContent(new_ticket_content)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't CreateTicketContent", Error: err})
 	}
 
-	return c.JSON(fiber.Map{"status": true, "message": "Success"})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
 func AdminGetTicketDetail(c *fiber.Ctx) error {
 	_, ok := c.Locals("admin").(model.Admin)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	var query repo.Query
 	query.Parse(c)
-	if query.ID == nil {
-		return c.JSON(fiber.Map{"status": false, "message": "id can't empty"})
+	if query.TicketID == nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "id can't empty"})
 	}
-	ticket, err := repo.AdminGetTicketDetail(*query.ID)
+	ticket, err := repo.AdminGetTicketDetail(*query.TicketID)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTicketDetail", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTicketDetail", Error: err})
 	}
 	if ticket.AdminReadAt == nil {
 		now := time.Now()
@@ -277,16 +249,16 @@ func AdminGetTicketDetail(c *fiber.Ctx) error {
 		repo.UpdateTicket(ticket)
 	}
 
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "ticket": ticket})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: ticket})
 }
 
 func AdminGetTicket(c *fiber.Ctx) error {
 	var query repo.Query
-	c.QueryParser(&query)
+	query.Parse(c)
 
 	ticket, total, err := repo.AdminGetTickets(query)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't AdminGetTickets", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't AdminGetTickets", Error: err})
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "tickets": ticket, "total": total})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: ticket, Total: &total})
 }

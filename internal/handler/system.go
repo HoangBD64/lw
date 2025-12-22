@@ -103,11 +103,11 @@ func AdminUpdateSetting(c *fiber.Ctx) error {
 	if setting_found.Type == model.PAYMENT_INFO {
 		old_data := []PaymentInfoSetting{}
 		if err := json.Unmarshal(setting_found.Metadata, &old_data); err != nil {
-			slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON:", err)
+			slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON:", "error", err)
 		}
 		new_data := []PaymentInfoSetting{}
 		if err := json.Unmarshal(input.Metadata, &new_data); err != nil {
-			slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON:", err)
+			slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON:", "error", err)
 		}
 		old_data_update := []PaymentInfoSetting{}
 		for _, new_setting := range new_data {

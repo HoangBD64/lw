@@ -132,8 +132,9 @@ func UserGetDocuments(q Query) ([]model.Document, int64, error) {
 	return userDocuments, count, tx.Error
 }
 
-func UserCreateDocument(doc *model.Document) error {
-	return app.Database.DB.Create(doc).Error
+func UserCreateDocument(doc model.Document) (model.Document, error) {
+	err := app.Database.DB.Create(&doc).Error
+	return doc, err
 }
 
 func UserGetDocumentByID(id int) (model.Document, error) {

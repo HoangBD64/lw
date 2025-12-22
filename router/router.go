@@ -113,7 +113,6 @@ func setupRouter(fiber_app *fiber.App) {
 
 	// tickets
 	api_user.Get("/tickets.json", middleware.Author(""), handler.GetTickets)
-	api_user.Get("/tickets/by-user-procedure.json", middleware.Author(""), handler.GetTicketProcedure)
 	api_user.Post("/tickets.json", middleware.Author(""), handler.CreateTicket)
 	api_user.Get("/tickets/detail.json", middleware.Author(""), handler.GetTicketDetail)
 	api_user.Post("/tickets/content.json", middleware.Author(""), handler.CreateTicketContent)
@@ -185,6 +184,11 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Patch("/user-procedures/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedure)
 	api_admin.Patch("/user-procedures/admin/assign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminAssignUserProcedure)
 	api_admin.Patch("/user-procedures/admin/unassign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUnassignUserProcedure)
+
+	// user procedure step
+	api_admin.Patch("/user-procedures/:id/steps/assign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminAssignLawyerToProcedureStep)
+	api_admin.Patch("/user-procedures/steps/status.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedureStepStatus)
+	api_admin.Patch("/user-procedures/steps/:id.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUpdateUserProcedureStep)
 
 	// tickets
 	api_admin.Get("/tickets/detail.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicketDetail)

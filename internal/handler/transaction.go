@@ -116,9 +116,16 @@ func InitPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "This payment method is not available yet.", ErrorCode: "PAYMENT_METHOD_DISABLE"})
 	}
 
-	up, err := repo.GetUserProcedureByID(user.ID, input.UserProcedureID)
+	up, err := repo.GetUserProcedureByID(input.UserProcedureID)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "UserProcedure not found", Error: err})
+	}
+	allowStatus := []string{
+		model.USER_PROCEDURE_STEP_PENDING,
+		model.USER_PROCEDURE_STEP_ERROR,
+	}
+	if !slices.Contains(allowStatus, lo.FromPtr(up.Status)) {
+		return c.JSON(base.BaseResponse{Status: false, Message: "This UserProcedure is already in pending status"})
 	}
 
 	switch payment_method.Type {

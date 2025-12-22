@@ -189,10 +189,11 @@ func UserCreateDocument(c *fiber.Ctx) error {
 		UserID:          &user.ID,
 		UserProcedureID: input.UserProcedureID,
 	}
-	if err := repo.UserCreateDocument(&doc); err != nil {
+	createdDoc, err := repo.UserCreateDocument(doc)
+	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Create Document", Error: err})
 	}
-	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: createdDoc})
 }
 
 func UserUpdateDocument(c *fiber.Ctx) error {
