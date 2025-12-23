@@ -83,9 +83,9 @@ func setupRouter(fiber_app *fiber.App) {
 	// ---------user---------
 	api_user := fiber_app.Group("/api/user")
 
-	// get payment upblic
+	// api upblic
 	api_user.Get("/payment/info.json", handler.GetPaymentInfo)
-
+	api_user.Post("/contact-forms.json", handler.CreateContactForm)
 	api_user.Post("/login_sso.json", handler.VerifyUserSSO)
 	api_user.Use(middleware.Authen)
 
@@ -101,6 +101,15 @@ func setupRouter(fiber_app *fiber.App) {
 	api_user.Get("/documents/:id.json", middleware.Author(""), handler.UserGetUserDocument)
 	api_user.Post("/documents.json", middleware.Author(""), handler.UserCreateDocument)
 	api_user.Patch("/documents/:id.json", middleware.Author(""), handler.UserUpdateDocument)
+
+	// notification preferences
+	api_user.Put("/notification-preferences.json", middleware.Author(""), handler.UserUpsertNotificationPreference)
+	api_user.Get("/notification-preferences.json", middleware.Author(""), handler.UserGetNotificationPreference)
+	// notification
+	api_user.Get("/notification.json", middleware.Author(""), handler.GetNotifications)
+	api_user.Get("/notification/detail.json", middleware.Author(""), handler.GetNotificationDetail)
+	api_user.Get("/notification/total.json", middleware.Author(""), handler.GetTotalNotificationType)
+	api_user.Get("/notification/mark_read_all.json", middleware.Author(""), handler.MarkReadAllNotification)
 
 	// procedure
 	api_user.Get("/procedures-templates.json", middleware.Author(""), handler.UserGetProcedures)
@@ -200,6 +209,15 @@ func setupRouter(fiber_app *fiber.App) {
 
 	// analytics overview
 	api_admin.Get("/analytics.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetSystemStats)
+
+	// contact forms
+	api_admin.Get("/contact-forms.json", handler.AdminGetContactForms)
+
+	// notification
+	api_admin.Get("/notification.json", handler.AdminGetNotifications)
+	api_admin.Get("/notification/detail.json", handler.AdminGetNotificationDetail)
+	api_admin.Get("/notification/total.json", handler.AdminGetTotalNotificationType)
+	api_admin.Get("/notification/mark_read_all.json", handler.AdminMarkReadAllNotification)
 }
 
 func Recover() {

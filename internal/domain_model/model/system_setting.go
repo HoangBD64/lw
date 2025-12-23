@@ -15,6 +15,7 @@ type SystemSetting struct {
 const ( // type
 	STORAGE_CREDENTIAL = "storage_credential"
 	PAYMENT_INFO       = "payment"
+	MAIL_SYSTEM        = "mail_system"
 )
 
 const ( //payment type
@@ -50,4 +51,13 @@ type PaymentInfoPublic struct {
 	APIBase        string         `json:"api_base,omitempty"`
 	IsActive       bool           `json:"is_active"`
 	Metadata       datatypes.JSON `json:"metadata,omitempty"`
+}
+
+type SystemSettingMail struct {
+	MAIL_SENDER  string `json:"mail_sender"`
+	MAIL_ACCOUNT string `json:"mail_account"`
+	MAIL_PASS    string `json:"mail_pass"`
+	MAIL_HEADER  string `json:"mail_header"`
+	MAIL_PORT    string `json:"mail_port"`
+	MAIL_HOST    string `json:"mail_host"`
 }

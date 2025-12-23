@@ -440,3 +440,13 @@ func PruneMissingProcedureSteps(procedureID int, keepIDs []int) error {
 		Where("procedure_id = ? AND id NOT IN ?", procedureID, keepIDs).
 		Delete(&model.ProcedureStep{}).Error
 }
+
+func AdminGetAllStepStatusByUserProcedureID(userProcedureID int) ([]model.UserProcedureStep, error) {
+	var steps []model.UserProcedureStep
+	tx := app.Database.DB.Model(&model.UserProcedureStep{}).
+		Where("user_procedure_id = ?", userProcedureID).
+		Select("id", "status").
+		Order("position ASC").
+		Find(&steps)
+	return steps, tx.Error
+}

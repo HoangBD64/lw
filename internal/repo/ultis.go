@@ -65,15 +65,6 @@ func (q *Query) ParseForLawyer(c *fiber.Ctx, admin model.Admin) error {
 	return nil
 }
 
-type SystemSettingMail struct {
-	SENDER_MAIL string `json:"sender_mail"`
-	ACCOUNT     string `json:"mail_account"`
-	PASS        string `json:"mail_pass"`
-	HeaderName  string `json:"header"`
-	PORT        string `json:"port"`
-	HOST        string `json:"host"`
-}
-
 // gorm pagination scope
 func pagination(page, pageSize int) func(*gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB { return db.Offset(pageSize * (page - 1)).Limit(pageSize) }

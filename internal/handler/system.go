@@ -186,6 +186,7 @@ func isSystemSettingRoleAllowed(typeName string, sysAdmin model.SystemAdmin) err
 		// model.STORAGE_CREDENTIAL: model.SUPER_ADMIN,
 		model.STORAGE_CREDENTIAL: model.RoleAdmin,
 		model.PAYMENT_INFO:       model.RoleAdmin,
+		model.MAIL_SYSTEM:        model.RoleAdmin,
 	}
 
 	perm, exists := src[typeName]

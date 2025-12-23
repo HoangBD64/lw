@@ -4,22 +4,32 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type NotificationPreference struct {
-	Model
+	ID           int        `gorm:"primaryKey,autoIncrement" json:"id"`
 	UserID       *uuid.UUID `json:"user_id"`
 	EmailEnabled bool       `json:"email_enabled"`
-	InAppEnabled bool       `json:"in_app_enabled"`
-	DigestDaily  bool       `json:"digest_daily"`
+
+	CreatedAt *time.Time      `json:"created_at,omitempty"`
+	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
+	DeletedAt *gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 }
 
 type Notification struct {
-	Model
-	UserID   *uuid.UUID     `json:"user_id"`
-	Title    string         `json:"title"`
-	Body     string         `json:"body"`
-	Metadata datatypes.JSON `json:"metadata"`
-	ReadAt   *time.Time     `json:"read_at"`
+	ID      int        `gorm:"primaryKey,autoIncrement" json:"id"`
+	UserID  *uuid.UUID `json:"user_id"`
+	Title   string     `json:"title"`
+	Content string     `json:"content" gorm:"type:text"`
+	Type    string     `json:"type"  gorm:"index"`
+	ReadAt  *time.Time `json:"read_at"`
+
+	CreatedAt *time.Time      `json:"created_at,omitempty"`
+	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
+	DeletedAt *gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 }
+
+const ( //notification type
+	NOTIFICATION_PROCEDURE = "procedure"
+)

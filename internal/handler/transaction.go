@@ -121,8 +121,7 @@ func InitPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "UserProcedure not found", Error: err})
 	}
 	allowStatus := []string{
-		model.USER_PROCEDURE_STEP_PENDING,
-		model.USER_PROCEDURE_STEP_ERROR,
+		model.USER_PROCEDURE_CREATED,
 	}
 	if !slices.Contains(allowStatus, lo.FromPtr(up.Status)) {
 		return c.JSON(base.BaseResponse{Status: false, Message: "This UserProcedure is already in pending status"})
@@ -165,9 +164,6 @@ func InitPayment(c *fiber.Ctx) error {
 			return c.JSON(base.BaseResponse{Status: false, Message: "can't CreateOrder", Error: err})
 		}
 
-		status := model.USER_PROCEDURE_PENDING
-		up.Status = &status
-		repo.AdminUpdateUserProcedure(&up)
 		go paypalUpdateTransaction(transaction, order)
 		return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: order})
 	case model.PAYMENT_AIRWALLEX:
@@ -214,9 +210,6 @@ func InitPayment(c *fiber.Ctx) error {
 			return c.JSON(base.BaseResponse{Status: false, Message: "can't create order airwallex", Error: err})
 		}
 
-		status := model.USER_PROCEDURE_PENDING
-		up.Status = &status
-		repo.AdminUpdateUserProcedure(&up)
 		go airwallexUpdateTransaction(transaction, data)
 		return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: data})
 	default:
@@ -261,6 +254,17 @@ func FinishPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "This payment method is not available yet.", ErrorCode: "PAYMENT_METHOD_DISABLE"})
 	}
 
+	up, err := repo.GetUserProcedureByID(lo.FromPtr(transaction.UserProcedureID))
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "UserProcedure not found", Error: err})
+	}
+	allowStatus := []string{
+		model.USER_PROCEDURE_CREATED,
+	}
+	if !slices.Contains(allowStatus, lo.FromPtr(up.Status)) {
+		return c.JSON(base.BaseResponse{Status: false, Message: "This UserProcedure is already in pending status"})
+	}
+
 	switch transaction.PaymentType {
 	case model.PAYMENT_PAYPAL:
 		payment_info := PaymentInfo{
@@ -282,6 +286,10 @@ func FinishPayment(c *fiber.Ctx) error {
 		if err != nil {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Error UpdateBalanceOrg", Error: err})
 		}
+
+		status := model.USER_PROCEDURE_PENDING
+		up.Status = &status
+		repo.AdminUpdateUserProcedure(&up)
 	case model.PAYMENT_AIRWALLEX:
 		if payment_method.APIBase == "live" {
 			payment_method.Domain = payment.AirwallexAPIBaseLive
@@ -309,6 +317,10 @@ func FinishPayment(c *fiber.Ctx) error {
 		if err != nil {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Error airwallexUpdateTransaction", Error: err})
 		}
+
+		status := model.USER_PROCEDURE_PENDING
+		up.Status = &status
+		repo.AdminUpdateUserProcedure(&up)
 	default:
 		return c.JSON(base.BaseResponse{Status: false, Message: "Unable to determine order payment type"})
 	}

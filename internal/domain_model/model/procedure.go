@@ -60,6 +60,7 @@ type UserProcedureStep struct {
 	FeedBack        datatypes.JSON `json:"feedback"`
 	Description     *string        `json:"description,omitempty"`
 	UserUpdated     *bool          `json:"user_updated,omitempty"`
+	UserCompleted   *bool          `json:"user_completed,omitempty" gorm:"default:false"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -101,10 +102,11 @@ const (
 	USER_PROCEDURE_PROCESSING = "processing"
 	USER_PROCEDURE_COMPLETED  = "completed"
 	USER_PROCEDURE_ERROR      = "error"
+	USER_PROCEDURE_CANCEL     = "cancel"
 
 	USER_PROCEDURE_STEP_PENDING    = "pending"
 	USER_PROCEDURE_STEP_PROCESSING = "processing"
-	USER_PROCEDURE_STEP_COMPLETED  = "completed"
+	USER_PROCEDURE_STEP_DONE       = "done"
 	USER_PROCEDURE_STEP_ERROR      = "error"
 
 	FULFILLMENT_PAID = "paid"

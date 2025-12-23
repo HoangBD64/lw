@@ -100,9 +100,9 @@ type AdminBulkUpsertProcedureStep struct {
 }
 
 type UserCreateProcedureRequest struct {
-	ProcedureID     int                             `json:"procedure_id" validate:"required,gt=0"`
-	ProcedureSteps  []UserProcedureStepOverrideData `json:"user_procedure_steps"`
-	Title           string                          `json:"title,omitempty"`
+	ProcedureID    int                             `json:"procedure_id" validate:"required,gt=0"`
+	ProcedureSteps []UserProcedureStepOverrideData `json:"user_procedure_steps"`
+	Title          string                          `json:"title,omitempty"`
 }
 
 type UserProcedureStepOverrideData struct {
@@ -120,7 +120,8 @@ type UnassignUserProcedureRequest struct {
 }
 
 type UserUpdateUserProcedureStepRequest struct {
-	Data datatypes.JSON `json:"data"`
+	Data          datatypes.JSON `json:"data"`
+	UserCompleted *bool          `json:"user_completed,omitempty"`
 }
 
 type AdminUpdateUserProcedureRequest struct {
@@ -144,7 +145,8 @@ type AdminUpdateUserProcedureStepStatusRequest struct {
 }
 
 type AdminUserUpdateProcedureStepRequest struct {
-	FeedBack datatypes.JSON `json:"feedback"`
-	Notes    string         `json:"notes"`
-	Status   string         `json:"status"`
+	FeedBack      datatypes.JSON `json:"feedback"`
+	Notes         string         `json:"notes"`
+	Status        string         `json:"status"`
+	UserCompleted *bool          `json:"user_completed,omitempty"`
 }

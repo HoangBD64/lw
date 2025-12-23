@@ -3,9 +3,11 @@ package handler
 import (
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
+	"core/internal/notification"
 	repo "core/internal/repo"
 	"core/utils"
 	"core/utils/base"
+	"log/slog"
 	"slices"
 	"strconv"
 
@@ -425,7 +427,39 @@ func AdminAssignUserProcedure(c *fiber.Ctx) error {
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Assign failed", Error: err})
 	}
-	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: fiber.Map{"updated": affected}})
+
+	if affected > 0 {
+		title := "The assigned lawyer"
+		body := "Your case has been assigned to a responsible lawyer."
+		go SendMailProcedureToUser(title, body, input.UserProcedureID)
+	}
+
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &affected})
+}
+
+func SendMailProcedureToUser(title string, body string, UserProcedureIDs []int) error {
+	service := notification.NewService(notification.SystemEmailSender{})
+	for _, upID := range UserProcedureIDs {
+		upx, err := repo.GetUserProcedureByID(upID)
+		if err == nil && upx.UserID != nil {
+			user, err := repo.GetUserByID(*upx.UserID)
+			if err != nil {
+				slog.Error("Failed to fetch user for procedure notification", "user_id", *upx.UserID, "error", err)
+				continue
+			}
+			title := "The assigned lawyer"
+			content := "Your case has been assigned to a responsible lawyer."
+			err = service.CreateNotifyInApp(&model.Notification{UserID: &user.ID, Title: title, Content: content, Type: model.NOTIFICATION_PROCEDURE})
+			if err != nil {
+				slog.Error("Failed to create in-app notification", "user_id", user.ID, "error", err)
+			}
+			err = service.SendEmailIfEnabled(user, title, content)
+			if err != nil {
+				slog.Error("Failed to send email notification", "user_id", user.ID, "error", err)
+			}
+		}
+	}
+	return nil
 }
 
 func AdminUnassignUserProcedure(c *fiber.Ctx) error {
@@ -509,6 +543,7 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure failed", Error: err})
 	}
+
 	if admin.IsLawyer() {
 		if userProcedure.AdminID == nil || *userProcedure.AdminID != admin.ID {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to manage this procedure"})
@@ -519,11 +554,45 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 	if input.Status == model.USER_PROCEDURE_STEP_ERROR {
 		UserUpdatedFalse := false
 		ups.UserUpdated = &UserUpdatedFalse
+
+		status := model.USER_PROCEDURE_ERROR
+		userProcedure.Status = &status
+		go repo.AdminUpdateUserProcedure(&userProcedure)
 	}
 	ups.Status = input.Status
+	ups.UserCompleted = input.UserCompleted
 
 	if err := repo.UpdateUserProcedureStep(&ups); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure step failed", Error: err})
+	}
+
+	if input.Status == model.USER_PROCEDURE_STEP_DONE {
+		go func(userProcedureID int) {
+			steps, err := repo.AdminGetAllStepStatusByUserProcedureID(userProcedureID)
+			if err != nil {
+				return
+			}
+			allCompleted := true
+			for _, s := range steps {
+				if s.Status != model.USER_PROCEDURE_STEP_DONE {
+					allCompleted = false
+					break
+				}
+			}
+			if allCompleted {
+				up, err := repo.GetUserProcedureByID(userProcedureID)
+				if err != nil {
+					return
+				}
+				status := model.USER_PROCEDURE_COMPLETED
+				up.Status = &status
+				_ = repo.AdminUpdateUserProcedure(&up)
+
+				title := "Procedure Completed"
+				body := "Your procedure has been completed successfully."
+				SendMailProcedureToUser(title, body, []int{userProcedureID})
+			}
+		}(ups.UserProcedureID)
 	}
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }

@@ -23,14 +23,13 @@ func (s *Service) UpsertPreference(pref *model.NotificationPreference) error {
 		FirstOrCreate(pref).Error
 }
 
-func (s *Service) CreateInApp(n *model.Notification) error {
+func (s *Service) CreateNotifyInApp(n *model.Notification) error {
 	return app.Database.DB.Model(&model.Notification{}).Create(n).Error
 }
 
 func (s *Service) SendEmailIfEnabled(user model.User, subject, body string) error {
 	var pref model.NotificationPreference
 	if err := app.Database.DB.Model(&model.NotificationPreference{}).Where("user_id = ?", user.ID).First(&pref).Error; err != nil {
-		// default: disabled if not set
 		return nil
 	}
 	if !pref.EmailEnabled || s.email == nil {

@@ -86,6 +86,7 @@ func MigrateDatabase(DB *gorm.DB) {
 		&model.Notification{},
 		&model.NotificationPreference{},
 		&model.Transaction{},
+		&model.ContactForm{},
 	}
 
 	if err := DB.AutoMigrate(migrations...); err != nil {
