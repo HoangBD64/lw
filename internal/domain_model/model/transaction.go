@@ -21,6 +21,7 @@ type Transaction struct {
 	Note            string         `json:"note"`
 	UserProcedureID *int           `json:"user_procedure_id,omitempty"`
 	UserProcedure   *UserProcedure `json:"user_procedure,omitempty"`
+	ProcedureID     *int           `json:"procedure_id,omitempty"`
 }
 
 const (

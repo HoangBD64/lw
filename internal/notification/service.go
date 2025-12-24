@@ -30,10 +30,10 @@ func (s *Service) CreateNotifyInApp(n *model.Notification) error {
 func (s *Service) SendEmailIfEnabled(user model.User, subject, body string) error {
 	var pref model.NotificationPreference
 	if err := app.Database.DB.Model(&model.NotificationPreference{}).Where("user_id = ?", user.ID).First(&pref).Error; err != nil {
-		return nil
+		return fmt.Errorf("failed to get notification preference: %w", err)
 	}
 	if !pref.EmailEnabled || s.email == nil {
-		return nil
+		return fmt.Errorf("email notifications disabled or email sender not configured")
 	}
 	if user.Email == nil || *user.Email == "" {
 		return fmt.Errorf("user email empty")

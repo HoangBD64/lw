@@ -211,6 +211,7 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 func GetProcedureByID(id int) (model.Procedure, error) {
 	var p model.Procedure
 	tx := app.Database.DB.
+		Preload("ProcedureSteps").
 		Where("is_active = ?", true).
 		First(&p, "id = ?", id)
 	return p, tx.Error
@@ -291,7 +292,7 @@ func ListUserProceduresByUser(userID uuid.UUID, q Query) ([]model.UserProcedure,
 		count int64
 	)
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
-		Preload("UserProcedureSteps", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "user_procedure_id","status","position","name") }).
+		Preload("UserProcedureSteps", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "user_procedure_id", "status", "position", "name") }).
 		Where("user_id = ?", userID)
 	if q.Status != "" {
 		tx = tx.Where("status = ?", q.Status)
@@ -311,57 +312,6 @@ func ListUserProceduresByUser(userID uuid.UUID, q Query) ([]model.UserProcedure,
 
 func CreateUserProcedureStep(step *model.UserProcedureStep) error {
 	return app.Database.DB.Model(&model.UserProcedureStep{}).Create(step).Error
-}
-
-func CreateUserProcedureWithSteps(userID uuid.UUID, baseProcedure model.Procedure, customSteps []model.UserProcedureStep) (model.UserProcedure, []model.UserProcedureStep, error) {
-	var up model.UserProcedure
-	var createdSteps []model.UserProcedureStep
-	err := app.Database.DB.Transaction(func(tx *gorm.DB) error {
-		isHaveTicket := false
-		status := model.USER_PROCEDURE_CREATED
-		up = model.UserProcedure{
-			UserID:       &userID,
-			ProcedureID:  baseProcedure.ID,
-			Status:       &status,
-			IsHaveTicket: &isHaveTicket,
-			Name:         baseProcedure.Name,
-			DueDate:      baseProcedure.DueDate,
-		}
-		if err := tx.Create(&up).Error; err != nil {
-			return err
-		}
-		var baseSteps []model.ProcedureStep
-		if err := tx.Model(&model.ProcedureStep{}).Where("procedure_id = ?", baseProcedure.ID).Order("position ASC").Find(&baseSteps).Error; err != nil {
-			return err
-		}
-		for _, bs := range baseSteps {
-			createdSteps = append(createdSteps, model.UserProcedureStep{
-				UserProcedureID: up.ID,
-				ProcedureStepID: bs.ID,
-				Name:            bs.Name,
-				DueDate:         bs.DueDate,
-				AdminID:         bs.AdminID,
-				Notes:           bs.Notes,
-				Position:        bs.Position,
-				Status:          model.PROCEDURE_STEP_TODO,
-				Data:            bs.Data,
-			})
-		}
-		// add custom steps
-		for _, cs := range customSteps {
-			cs.UserProcedureID = up.ID
-			cs.ProcedureStepID = 0
-			cs.Status = model.PROCEDURE_STEP_TODO
-			createdSteps = append(createdSteps, cs)
-		}
-		if len(createdSteps) > 0 {
-			if err := tx.Model(&model.UserProcedureStep{}).Create(&createdSteps).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return up, createdSteps, err
 }
 
 func GetUserProcedureStepByID(userProcedureStepID int) (model.UserProcedureStep, error) {

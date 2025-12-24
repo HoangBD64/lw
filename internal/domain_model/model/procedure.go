@@ -75,10 +75,14 @@ type UserProcedure struct {
 	Procedure           *Procedure          `json:"procedure,omitempty"`
 	AdminID             *uuid.UUID          `json:"admin_id,omitempty"`
 	Admin               *Admin              `json:"admin,omitempty"`
-	Name                string              `json:"name"`
+	TemplateName        string              `json:"template_name"`
+	State               *string             `json:"state"`
 	IsHaveTicket        *bool               `json:"is_have_ticket,omitempty"`
+	IsSendNoti          *bool               `json:"is_send_noti,omitempty" gorm:"default:false"`
 	Status              *string             `json:"status" gorm:"index"`
 	Note                *string             `json:"note"`
+	CompanyName         *string             `json:"company_name"`
+	CompanyType         *string             `json:"company_type"`
 	DueDate             *int                `json:"due_date"`
 	UserProcedureSteps  []UserProcedureStep `json:"user_procedure_steps,omitempty"`
 	Cost                *float64            `json:"cost,omitempty"`

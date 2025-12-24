@@ -11,6 +11,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -49,7 +50,7 @@ func GetPaymentInfo(c *fiber.Ctx) error {
 	}
 	data := []model.PaymentInfoPublic{}
 	if err := json.Unmarshal(setting.Metadata, &data); err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 	}
 	payment_info := []model.PaymentInfoPublic{}
 	lo.ForEach(data, func(payment model.PaymentInfoPublic, _ int) {
@@ -74,10 +75,10 @@ func InitPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	type Input struct {
-		Deposit         float64 `json:"deposit" validate:"required"`
-		Currency        string  `json:"currency"`
-		Type            string  `json:"type" validate:"required"`
-		UserProcedureID int     `json:"user_procedure_id" validate:"required"`
+		Deposit     float64 `json:"deposit" validate:"required"`
+		Currency    string  `json:"currency"`
+		Type        string  `json:"type" validate:"required"`
+		ProcedureID int     `json:"procedure_id" validate:"required"`
 	}
 	var input Input
 	if err := c.BodyParser(&input); err != nil {
@@ -105,7 +106,7 @@ func InitPayment(c *fiber.Ctx) error {
 	}
 	info_payment := []model.PaymentInfo{}
 	if err := json.Unmarshal(setting.Metadata, &info_payment); err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return c.JSON(base.BaseResponse{Status: false, Message: "Problem checking payment method", Error: err})
 	}
 
@@ -116,15 +117,9 @@ func InitPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "This payment method is not available yet.", ErrorCode: "PAYMENT_METHOD_DISABLE"})
 	}
 
-	up, err := repo.GetUserProcedureByID(input.UserProcedureID)
+	up, err := repo.GetProcedureByID(input.ProcedureID)
 	if err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "UserProcedure not found", Error: err})
-	}
-	allowStatus := []string{
-		model.USER_PROCEDURE_CREATED,
-	}
-	if !slices.Contains(allowStatus, lo.FromPtr(up.Status)) {
-		return c.JSON(base.BaseResponse{Status: false, Message: "This UserProcedure is already in pending status"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Procedure not found", Error: err})
 	}
 
 	switch payment_method.Type {
@@ -145,13 +140,13 @@ func InitPayment(c *fiber.Ctx) error {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Insufficient amount for this UserProcedure", ErrorCode: "INSUFFICIENT_FUNDS"})
 		}
 		new_trans := model.Transaction{
-			UserID:          &user.ID,
-			Type:            model.USER_DEPOSIT,
-			Amount:          required,
-			AmountDeposit:   input.Deposit,
-			PaymentType:     model.PAYMENT_PAYPAL,
-			Status:          "pending",
-			UserProcedureID: &input.UserProcedureID,
+			UserID:        &user.ID,
+			Type:          model.USER_DEPOSIT,
+			Amount:        required,
+			AmountDeposit: input.Deposit,
+			PaymentType:   model.PAYMENT_PAYPAL,
+			Status:        "pending",
+			ProcedureID:   &input.ProcedureID,
 		}
 		transaction, err := repo.CreateTransaction(c.Context(), new_trans)
 		if err != nil {
@@ -188,13 +183,13 @@ func InitPayment(c *fiber.Ctx) error {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Insufficient amount for this UserProcedure", ErrorCode: "INSUFFICIENT_FUNDS"})
 		}
 		new_trans := model.Transaction{
-			UserID:          &user.ID,
-			Type:            model.USER_DEPOSIT,
-			PaymentType:     model.PAYMENT_AIRWALLEX,
-			Amount:          required,
-			AmountDeposit:   input.Deposit,
-			Status:          "pending",
-			UserProcedureID: &input.UserProcedureID,
+			UserID:        &user.ID,
+			Type:          model.USER_DEPOSIT,
+			PaymentType:   model.PAYMENT_AIRWALLEX,
+			Amount:        required,
+			AmountDeposit: input.Deposit,
+			Status:        "pending",
+			ProcedureID:   &input.ProcedureID,
 		}
 		transaction, err := repo.CreateTransaction(c.Context(), new_trans)
 		if err != nil {
@@ -217,20 +212,24 @@ func InitPayment(c *fiber.Ctx) error {
 	}
 }
 
-// for logic payment in checkout page
+type FinishBody struct {
+	OrderID     string `json:"order_id"`
+	State       string `json:"state"`
+	CompanyName string `json:"company_name"`
+	CompanyType string `json:"company_type"`
+}
+
 func FinishPayment(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 
-	type FinishBody struct {
-		OrderID string `json:"order_id"`
-	}
 	var fnBody FinishBody
 	if err := c.BodyParser(&fnBody); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid request body", Error: err})
 	}
+	fnBody.State = strings.ToLower(fnBody.State)
 
 	transaction, err := repo.GetTransactionByOrderID(fnBody.OrderID, user)
 	if err != nil {
@@ -244,7 +243,7 @@ func FinishPayment(c *fiber.Ctx) error {
 
 	info_payment := []model.PaymentInfo{}
 	if err := json.Unmarshal(setting.Metadata, &info_payment); err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return c.JSON(base.BaseResponse{Status: false, Message: "Problem checking payment method", Error: err})
 	}
 	payment_method, ok := lo.Find(info_payment, func(info model.PaymentInfo) bool {
@@ -254,17 +253,12 @@ func FinishPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "This payment method is not available yet.", ErrorCode: "PAYMENT_METHOD_DISABLE"})
 	}
 
-	up, err := repo.GetUserProcedureByID(lo.FromPtr(transaction.UserProcedureID))
+	_, err = repo.GetProcedureByID(lo.FromPtr(transaction.ProcedureID))
 	if err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "UserProcedure not found", Error: err})
-	}
-	allowStatus := []string{
-		model.USER_PROCEDURE_CREATED,
-	}
-	if !slices.Contains(allowStatus, lo.FromPtr(up.Status)) {
-		return c.JSON(base.BaseResponse{Status: false, Message: "This UserProcedure is already in pending status"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Procedure not found", Error: err})
 	}
 
+	var up model.UserProcedure
 	switch transaction.PaymentType {
 	case model.PAYMENT_PAYPAL:
 		payment_info := PaymentInfo{
@@ -282,14 +276,17 @@ func FinishPayment(c *fiber.Ctx) error {
 		if err != nil {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Error CapturePayment", Error: err})
 		}
+
+		up, err = UserCreateUserProcedureAfterPayment(transaction, fnBody)
+		if err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "Error creating user procedure", Error: err})
+		}
+
+		transaction.UserProcedureID = &up.ID
 		err = paypalUpdateBalanceOrg(transaction, capture)
 		if err != nil {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Error UpdateBalanceOrg", Error: err})
 		}
-
-		status := model.USER_PROCEDURE_PENDING
-		up.Status = &status
-		repo.AdminUpdateUserProcedure(&up)
 	case model.PAYMENT_AIRWALLEX:
 		if payment_method.APIBase == "live" {
 			payment_method.Domain = payment.AirwallexAPIBaseLive
@@ -313,25 +310,72 @@ func FinishPayment(c *fiber.Ctx) error {
 		if data.Status != "SUCCEEDED" {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Status Order payment not Success", ErrorCode: "ORDER_NOT_COMPLETED"})
 		}
+
+		up, err = UserCreateUserProcedureAfterPayment(transaction, fnBody)
+		if err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "Error creating user procedure", Error: err})
+		}
+		transaction.UserProcedureID = &up.ID
 		err = airwallexUpdateBalanceOrg(transaction, data)
 		if err != nil {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Error airwallexUpdateTransaction", Error: err})
 		}
-
-		status := model.USER_PROCEDURE_PENDING
-		up.Status = &status
-		repo.AdminUpdateUserProcedure(&up)
 	default:
 		return c.JSON(base.BaseResponse{Status: false, Message: "Unable to determine order payment type"})
 	}
-	return c.JSON(base.BaseResponse{Status: true})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: up.ID})
+}
+
+func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body FinishBody) (model.UserProcedure, error) {
+	procedure_template, err := repo.GetProcedureByID(lo.FromPtr(transaction.ProcedureID))
+	if err != nil {
+		slog.Debug("Error get ProcedureTemplateByID", "err", err)
+		return model.UserProcedure{}, err
+	}
+
+	status := model.USER_PROCEDURE_PENDING
+	title := "Untitled"
+	isHaveTicket := false
+	new_user_procedure := model.UserProcedure{
+		UserID:       transaction.UserID,
+		ProcedureID:  procedure_template.ID,
+		TemplateName: procedure_template.Name,
+		Cost:         procedure_template.Cost,
+		DueDate:      procedure_template.DueDate,
+		Status:       &status,
+		Title:        &title,
+		IsHaveTicket: &isHaveTicket,
+		State:        &body.State,
+		CompanyName:  &body.CompanyName,
+		CompanyType:  &body.CompanyType,
+	}
+	up, err := repo.CreateUserProcedure(new_user_procedure)
+	if err != nil {
+		slog.Debug("Error creating UserProcedure", "err", err)
+		return model.UserProcedure{}, err
+	}
+
+	ups := MappingProcedureStepsToUserProcedureSteps(procedure_template.ProcedureSteps, up.ID)
+	err = repo.UserCreateBulkProcedureStep(&ups)
+	if err != nil {
+		slog.Debug("Error creating UserProcedureStepsBatch", "err", err)
+		return model.UserProcedure{}, err
+	}
+
+	transaction.UserProcedureID = &up.ID
+	_, err = repo.UpdateTransaction(transaction)
+	if err != nil {
+		slog.Debug("Error UpdateTransaction:", "err", err)
+		return model.UserProcedure{}, err
+	}
+	return up, nil
 }
 
 func paypalUpdateTransaction(transaction model.Transaction, order_payment *paypal.Order) error {
 	transaction.OrderPaymentID = order_payment.ID
 	jsonData, err := json.Marshal(order_payment)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 	new_his := model.HistoryJson{
@@ -341,7 +385,7 @@ func paypalUpdateTransaction(transaction model.Transaction, order_payment *paypa
 	list_history := []model.HistoryJson{new_his}
 	json_history_json, err := json.Marshal(list_history)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 	transaction.Metadata = json_history_json
@@ -356,7 +400,7 @@ func airwallexUpdateTransaction(transaction model.Transaction, order_payment pay
 	transaction.OrderPaymentID = order_payment.ID
 	jsonData, err := json.Marshal(order_payment)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 	new_his := model.HistoryJson{
@@ -366,7 +410,7 @@ func airwallexUpdateTransaction(transaction model.Transaction, order_payment pay
 	list_history := []model.HistoryJson{new_his}
 	json_history_json, err := json.Marshal(list_history)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 	transaction.Metadata = json_history_json
@@ -381,14 +425,14 @@ func airwallexUpdateTransaction(transaction model.Transaction, order_payment pay
 func airwallexUpdateBalanceOrg(transaction model.Transaction, order_payment payment.ReponseAirWallexOrderCreate) error {
 	jsonData, err := json.Marshal(order_payment)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 
 	list_history := []model.HistoryJson{}
 	err = json.Unmarshal(transaction.Metadata, &list_history)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 	new_his := model.HistoryJson{
@@ -398,7 +442,7 @@ func airwallexUpdateBalanceOrg(transaction model.Transaction, order_payment paym
 	list_history = append(list_history, new_his)
 	json_history_json, err := json.Marshal(list_history)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 	transaction.Metadata = json_history_json
@@ -406,6 +450,10 @@ func airwallexUpdateBalanceOrg(transaction model.Transaction, order_payment paym
 	_, err = repo.UpdateTransaction(transaction)
 	if err != nil {
 		return err
+	}
+
+	if transaction.UserProcedureID != nil {
+		go SendMailToUser([]int{*transaction.UserProcedureID}, model.NOTI_INVOICE_COMPLETED)
 	}
 	return nil
 }
@@ -429,14 +477,14 @@ func paypalUpdateBalanceOrg(transaction model.Transaction, capture paypal.Captur
 	}
 	jsonData, err := json.Marshal(capture)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 
 	list_history := []model.HistoryJson{}
 	err = json.Unmarshal(transaction.Metadata, &list_history)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 	new_his := model.HistoryJson{
@@ -446,13 +494,17 @@ func paypalUpdateBalanceOrg(transaction model.Transaction, capture paypal.Captur
 	list_history = append(list_history, new_his)
 	json_history_json, err := json.Marshal(list_history)
 	if err != nil {
-		slog.Debug("Lỗi khi chuyển đổi cấu trúc thành JSON", "err", err)
+		slog.Debug("Error marshaling", "err", err)
 		return err
 	}
 	transaction.Metadata = json_history_json
 	_, err = repo.UpdateTransaction(transaction)
 	if err != nil {
 		return err
+	}
+
+	if transaction.Status == model.COMPLETED && transaction.UserProcedureID != nil {
+		go SendMailToUser([]int{*transaction.UserProcedureID}, model.NOTI_INVOICE_COMPLETED)
 	}
 	return nil
 }

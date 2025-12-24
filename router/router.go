@@ -116,7 +116,7 @@ func setupRouter(fiber_app *fiber.App) {
 	api_user.Get("/procedures-templates/:id.json", middleware.Author(""), handler.UserGetProcedure)
 	api_user.Get("/procedures.json", middleware.Author(""), handler.UserListUserProcedures)
 	api_user.Get("/procedures/:id/steps.json", middleware.Author(""), handler.UserGetProcedureDetail)
-	api_user.Post("/procedures.json", middleware.Author(""), handler.UserCreateProcedure)
+	// api_user.Post("/procedures.json", middleware.Author(""), handler.UserCreateProcedure)
 	// procedure step
 	api_user.Patch("/procedures/steps/:id.json", middleware.Author(""), handler.UserUpdateUserProcedureStep)
 

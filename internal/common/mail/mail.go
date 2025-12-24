@@ -30,7 +30,7 @@ func SendSystemMail(ctx context.Context, mailContent MailContent) error {
 
 	if _, err := mail.ParseAddress(mailSetting.MAIL_SENDER); err != nil {
 		slog.Info("mail system setting is invalid", "mail", mailSetting.MAIL_SENDER, "error", err)
-		return nil
+		return err
 	}
 
 	port, err := strconv.Atoi(mailSetting.MAIL_PORT)

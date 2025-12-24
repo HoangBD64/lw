@@ -20,6 +20,7 @@ type NotificationPreference struct {
 type Notification struct {
 	ID      int        `gorm:"primaryKey,autoIncrement" json:"id"`
 	UserID  *uuid.UUID `json:"user_id"`
+	AdminID *uuid.UUID `json:"admin_id"`
 	Title   string     `json:"title"`
 	Content string     `json:"content" gorm:"type:text"`
 	Type    string     `json:"type"  gorm:"index"`
@@ -31,5 +32,8 @@ type Notification struct {
 }
 
 const ( //notification type
-	NOTIFICATION_PROCEDURE = "procedure"
+	NOTIFICATION_PROCEDURE   = "procedure"
+	NOTI_INVOICE_COMPLETED   = "invoice_completed"
+	NOTI_PROCEDURE_ERROR     = "procedure_error"
+	NOTI_PROCEDURE_COMPLETED = "procedure_completed"
 )
