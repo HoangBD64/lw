@@ -113,7 +113,25 @@ func GetAllAdmin(ctx context.Context, query Query) ([]model.Admin, error) {
 	if query.AdminID != nil {
 		tx = tx.Where("id = ?", query.AdminID)
 	}
-	tx = tx.Find(&admins)
+	if query.Search != "" {
+		tx = tx.Where("name ILIKE ? OR  email ILIKE ? ", "%"+query.Search+"%", "%"+query.Search+"%")
+	}
+	if query.Status != "" {
+		tx = tx.Where("status = ?", query.Status)
+	}
+	if query.Role != "" {
+		tx = tx.Where("role = ?", query.Role)
+	}
+	if query.AdminID != nil {
+		tx = tx.Where("id = ?", query.AdminID)
+	}
+	if query.StartTime != nil && query.EndTime != nil {
+		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
+	}
+
+	var count int64
+	tx = tx.Count(&count)
+	tx = tx.Offset(query.Limit * (query.Page - 1)).Limit(query.Limit).Order("created_at DESC").Find(&admins)
 
 	if err := tx.Error; err != nil {
 		return nil, err

@@ -32,10 +32,10 @@ func GetNotificationDetail(c *fiber.Ctx) error {
 	}
 	var query repo.Query
 	query.Parse(c)
-	if query.ID == nil {
+	if query.IdInt == nil {
 		return c.JSON(fiber.Map{"status": false, "error": "id can't empty"})
 	}
-	noti, err := repo.GetNotificationDetails(*query.ID, user)
+	noti, err := repo.GetNotificationDetails(*query.IdInt, user)
 	if err != nil {
 		return c.JSON(fiber.Map{"status": false, "message": "Can't GetNotificationDetails", "error": err.Error()})
 	}
@@ -111,11 +111,11 @@ func AdminGetNotificationDetail(c *fiber.Ctx) error {
 
 	var query repo.Query
 	query.Parse(c)
-	if query.ID == nil {
+	if query.IdInt == nil {
 		return c.JSON(fiber.Map{"status": false, "error": "id can't empty"})
 	}
 
-	notification, err := repo.AdminGetNotificationDetails(c.Context(), *query.ID)
+	notification, err := repo.AdminGetNotificationDetails(c.Context(), *query.IdInt)
 	if err != nil {
 		return c.JSON(fiber.Map{"status": false, "message": "Can't GetNotificationDetails", "error": err.Error()})
 	}

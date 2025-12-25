@@ -33,7 +33,7 @@ func GetNotifications(query Query, user model.User) ([]model.Notification, int64
 	return notis, count, err.Error
 }
 
-func GetNotificationDetails(id uuid.UUID, user model.User) (model.Notification, error) {
+func GetNotificationDetails(id int, user model.User) (model.Notification, error) {
 	var noti model.Notification
 	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id = ?", user.ID).Where("id = ?", id).First(&noti)
 	return noti, tx.Error
@@ -79,6 +79,9 @@ func AdminGetNotifications(ctx context.Context, query Query) ([]model.Notificati
 
 	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id IS NULL")
 
+	if query.Search != "" {
+		tx = tx.Where("name ILIKE ? ", "%"+query.Search+"%")
+	}
 	if query.Type != "" {
 		tx = tx.Where("type = ?", query.Type)
 	}
@@ -94,7 +97,7 @@ func AdminGetNotifications(ctx context.Context, query Query) ([]model.Notificati
 	return out, int(count), nil
 }
 
-func AdminGetNotificationDetails(ctx context.Context, id uuid.UUID) (model.Notification, error) {
+func AdminGetNotificationDetails(ctx context.Context, id int) (model.Notification, error) {
 	var notification model.Notification
 
 	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id IS NULL").Where("id = ?", id).First(&notification)

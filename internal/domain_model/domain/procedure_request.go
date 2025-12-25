@@ -116,7 +116,7 @@ type AssignUserProcedureRequest struct {
 }
 
 type UnassignUserProcedureRequest struct {
-	UserProcedureID int `json:"user_procedure_id" validate:"required,gt=0"`
+	UserProcedureID []int `json:"user_procedure_id" validate:"required,gt=0"`
 }
 
 type UserUpdateUserProcedureStepRequest struct {

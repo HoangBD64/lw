@@ -12,6 +12,7 @@ import (
 type Query struct {
 	UserID       *uuid.UUID `query:"user_id" json:"user_id,omitempty"`
 	ID           *uuid.UUID `query:"id"  json:"id,omitempty"`
+	IdInt        *int       `query:"id_int"  json:"id_int,omitempty"`
 	IDS          []uuid.UUID
 	UserIDs      []uuid.UUID
 	AdminID      *uuid.UUID `query:"admin_id" json:"admin_id"`
@@ -23,6 +24,7 @@ type Query struct {
 	Name         string     `query:"name" json:"name,omitempty"`
 	Email        string     `query:"email" json:"email,omitempty"`
 	Search       string     `query:"search" json:"search,omitempty"`
+	CompanyName  string     `query:"company_name" json:"company_name,omitempty"`
 	IsHaveTicket *bool      `query:"is_have_ticket" json:"is_have_ticket,omitempty"`
 	IsAssigned   *bool      `query:"is_assigned" json:"is_assigned,omitempty"`
 	//

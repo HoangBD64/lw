@@ -186,7 +186,7 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 		tx = tx.Where("procedure_id = ?", q.ProcedureID)
 	}
 	if q.Search != "" {
-		tx = tx.Where("name ILIKE ?", "%"+q.Search+"%")
+		tx = tx.Where("template_name ILIKE ? OR company_name ILIKE ? OR id::text ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%", q.Search+"%")
 	}
 	if q.IsHaveTicket != nil {
 		tx = tx.Where("is_have_ticket = ?", q.IsHaveTicket)
@@ -238,25 +238,44 @@ func GetUserProcedureByID(userProcedureID int) (model.UserProcedure, error) {
 }
 
 func AssignAdminToUserProcedures(userProcedureIDs []int, adminID uuid.UUID) (int64, error) {
+	// if status is PENDING, change to PROCESSING, else keep current status
+	allowAssignStatuses := []string{
+		model.USER_PROCEDURE_PENDING,
+		model.USER_PROCEDURE_PROCESSING,
+		model.USER_PROCEDURE_ERROR,
+	}
+
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
-		Where("id IN ? AND status = ?", userProcedureIDs, model.USER_PROCEDURE_PENDING).
+		Where("id IN ? AND status IN ?", userProcedureIDs, allowAssignStatuses).
 		Updates(map[string]any{
 			"admin_id": adminID,
-			"status":   model.USER_PROCEDURE_PROCESSING,
+			"status": gorm.Expr(`
+				CASE
+					WHEN status = ? THEN ?
+					ELSE status
+				END
+			`,
+				model.USER_PROCEDURE_PENDING,
+				model.USER_PROCEDURE_PROCESSING,
+			),
 		})
 
-	tx = app.Database.DB.Model(&model.UserProcedureStep{}).
-		Where("user_procedure_id IN ? AND status = ?", userProcedureIDs, model.USER_PROCEDURE_STEP_PENDING).
-		Updates(map[string]any{
-			"status": model.USER_PROCEDURE_STEP_PROCESSING,
-		})
+	_ = app.Database.DB.Model(&model.UserProcedureStep{}).
+		Where("user_procedure_id IN ? AND status = ?",
+			userProcedureIDs,
+			model.USER_PROCEDURE_PENDING,
+		).
+		Update("status", model.USER_PROCEDURE_STEP_PROCESSING)
+
 	return tx.RowsAffected, tx.Error
 }
 
-func UnassignAdminFromUserProcedure(userProcedureID int) error {
-	return app.Database.DB.Model(&model.UserProcedure{}).
-		Where("id = ?", userProcedureID).
-		Updates(map[string]any{"admin_id": nil}).Error
+func UnassignAdminFromUserProcedure(userProcedureIDs []int) (int64, error) {
+	tx := app.Database.DB.Model(&model.UserProcedure{}).
+		Where("id IN ? AND status NOT IN ? AND admin_id IS NOT NULL", userProcedureIDs, []string{model.USER_PROCEDURE_COMPLETED}).
+		Updates(map[string]any{"admin_id": nil})
+
+	return tx.RowsAffected, tx.Error
 }
 
 func MarkUserProcedureHasTicket(userProcedureID int, has bool) error {
@@ -299,6 +318,9 @@ func ListUserProceduresByUser(userID uuid.UUID, q Query) ([]model.UserProcedure,
 	}
 	if q.StartTime != nil && q.EndTime != nil {
 		tx = tx.Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime)
+	}
+	if q.Search != "" {
+		tx = tx.Where("template_name ILIKE ? OR company_name ILIKE ? OR id::text ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%", q.Search+"%")
 	}
 	tx = tx.Count(&count)
 	if tx.Error != nil {

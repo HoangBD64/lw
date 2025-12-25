@@ -153,7 +153,7 @@ func UserGetUserDocuments(c *fiber.Ctx) error {
 }
 
 func UserGetUserDocument(c *fiber.Ctx) error {
-	_, ok := c.Locals("user").(model.User)
+	user, ok := c.Locals("user").(model.User)
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
 	}
@@ -162,7 +162,7 @@ func UserGetUserDocument(c *fiber.Ctx) error {
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid id", Error: err})
 	}
-	doc, err := repo.UserGetDocumentByID(id)
+	doc, err := repo.UserGetDocumentByID(id, user.ID)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get Document Failed", Error: err})
 	}

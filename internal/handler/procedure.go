@@ -417,7 +417,7 @@ func AdminUpdateUserProcedure(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure failed", Error: err})
 	}
 	if admin.IsLawyer() {
-		if up.AdminID == nil || *up.AdminID != admin.ID {
+		if lo.FromPtr(up.AdminID) != admin.ID {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to manage this procedure"})
 		}
 	}
@@ -447,6 +447,14 @@ func AdminAssignUserProcedure(c *fiber.Ctx) error {
 	}
 	if len(input.UserProcedureID) == 0 {
 		return c.JSON(base.BaseResponse{Status: false, Message: "user_procedure_id is required"})
+	}
+
+	adminAssign, er := repo.GetAdminByID(c.Context(), lo.FromPtr(input.AdminID))
+	if er != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Fetch admin failed", Error: er})
+	}
+	if !adminAssign.IsLawyer() {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Assigned admin must be a lawyer"})
 	}
 
 	targetAdminID := currentAdmin.ID
@@ -545,22 +553,17 @@ func AdminUnassignUserProcedure(c *fiber.Ctx) error {
 	if err := c.BodyParser(&input); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
 	}
-	if _, err := repo.AdminGetUserProcedureByID(input.UserProcedureID); err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure failed", Error: err})
-	}
-	if err := repo.UnassignAdminFromUserProcedure(input.UserProcedureID); err != nil {
+	total, err := repo.UnassignAdminFromUserProcedure(input.UserProcedureID)
+	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Unassign failed", Error: err})
 	}
-	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &total})
 }
 
 func AdminUpdateUserProcedureStepStatus(c *fiber.Ctx) error {
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
-	}
-	if !admin.IsAdmin() && !admin.IsOwner {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to update step status"})
 	}
 	var input domain.AdminUpdateUserProcedureStepStatusRequest
 	if err := c.BodyParser(&input); err != nil {
@@ -594,9 +597,6 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
 	}
-	if !admin.IsAdmin() && !admin.IsOwner {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to update step"})
-	}
 	idParam := c.Params("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil || id == 0 {
@@ -616,7 +616,7 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 	}
 
 	if admin.IsLawyer() {
-		if userProcedure.AdminID == nil || *userProcedure.AdminID != admin.ID {
+		if lo.FromPtr(userProcedure.AdminID) != admin.ID {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to manage this procedure"})
 		}
 	}
@@ -630,6 +630,12 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 		userProcedure.Status = &status
 		go repo.AdminUpdateUserProcedure(&userProcedure)
 		go SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_PROCEDURE_ERROR)
+		notification := model.Notification{
+			Title:   "Procedure step error",
+			Type:    model.NOTIFICATION_PROCEDURE,
+			Content: fmt.Sprintf("Procedure step '%s' has an error. Please review the changes.", ups.Name),
+		}
+		go repo.CreateNotification(c.Context(), notification)
 	}
 	ups.Status = input.Status
 	ups.UserCompleted = input.UserCompleted
@@ -660,7 +666,12 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 				up.Status = &status
 				_ = repo.AdminUpdateUserProcedure(&up)
 
-				go SendMailToUser([]int{userProcedureID}, model.NOTI_PROCEDURE_COMPLETED)
+				notification := model.Notification{
+					Title:   "Procedure completed",
+					Type:    model.NOTIFICATION_PROCEDURE,
+					Content: fmt.Sprintf("Procedure '%d' has been completed.", up.ID),
+				}
+				go repo.CreateNotification(c.Context(), notification)
 			}
 		}(ups.UserProcedureID)
 	}
@@ -721,7 +732,6 @@ func MappingProcedureStepsToUserProcedureSteps(procedureSteps []model.ProcedureS
 			Data:            step.Data,
 			Name:            step.Name,
 			DueDate:         step.DueDate,
-			AdminID:         step.AdminID,
 			Notes:           step.Notes,
 			Position:        step.Position,
 			Description:     step.Description,

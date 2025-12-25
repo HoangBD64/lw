@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"bytes"
 	"context"
 	"core/internal/domain_model/model"
 	"fmt"
@@ -189,52 +188,6 @@ func AdminGetUrlS3(data PutObjectUpload, admin model.Admin, key KeyS3) (string, 
 	return url, direct_url, nil
 }
 
-func GetStoreInvoiceUrlS3(data PutObjectUpload, storeID uuid.UUID, key KeyS3) (string, string, error) {
-	var directURL string
-
-	accessKey := key.AccessKey
-	secKey := key.SecretKey
-	endpoint := key.EndPointApi
-	endpointCdn := key.EndPointCdn
-	bucketName := key.Bucket // Space names must be globally unique
-	isSSL := key.IsSSL       // Space names must be globally unique
-
-	minioClient, err := minio.New(endpoint, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secKey, ""), Secure: isSSL})
-
-	if err != nil {
-		slog.Error("failed to create minio client", "error", err)
-		return "", "", err
-	}
-
-	var ext = GetFileExtension(data.ContentType)
-
-	now := time.Now()
-	fileName := fmt.Sprintf("invoice_%s%s", now.Format("20060102_150405"), ext)
-	objectKey := fmt.Sprintf("%s/%s/%s/%s", "invoices", storeID, now.Format("200601"), fileName)
-
-	presignedURL, err := minioClient.PresignedPutObject(context.Background(), bucketName, objectKey, time.Duration(1000)*time.Second)
-	if err != nil {
-		slog.Error("failed to create presigned upload URL", "error", err)
-		return "", "", err
-	}
-
-	url := presignedURL.String()
-	if endpointCdn != "" && endpointCdn != endpoint {
-		if strings.HasPrefix(presignedURL.Path, "/"+bucketName) || strings.HasPrefix(presignedURL.Path, bucketName) {
-			presignedURL.Path = strings.TrimPrefix(presignedURL.Path, "/"+bucketName)
-		}
-		endpoint = endpointCdn
-	}
-
-	if isSSL {
-		directURL = fmt.Sprintf("https://%s%s", endpoint, presignedURL.Path)
-	} else {
-		directURL = fmt.Sprintf("http://%s%s", endpoint, presignedURL.Path)
-	}
-
-	return url, directURL, nil
-}
-
 func GenerateHandle(title string) string {
 	handle := strings.ToLower(title)
 	handle = strings.ReplaceAll(handle, "_", "-")
@@ -252,31 +205,6 @@ func GenerateHandle(title string) string {
 		handle = handle + ext
 	}
 	return handle
-}
-
-func UploadLocalFile(ctx context.Context, key KeyS3, objectName string, filePath string) (string, error) {
-	accessKey := key.AccessKey
-	secKey := key.SecretKey
-	endpoint := key.EndPointApi
-	bucketName := key.Bucket
-	isSSL := key.IsSSL
-
-	client, err := minio.New(endpoint, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secKey, ""), Secure: isSSL})
-	if err != nil {
-		slog.Error("failed to create minio client", "error", err)
-		return "", err
-	}
-
-	info, err := client.FPutObject(ctx, bucketName, objectName, filePath, minio.PutObjectOptions{})
-	if err != nil {
-		slog.Error("failed to upload object", "error", err, "object_name", objectName)
-		return "", err
-	}
-
-	slog.Info("file uploaded successfully", "size", info.Size, "bucket", info.Bucket, "object_name", info.Key)
-	url := getPublicObjectURL(endpoint, key.EndPointCdn, info.Bucket, fmt.Sprintf("/%s/%s", info.Bucket, info.Key), isSSL)
-
-	return url, nil
 }
 
 // doesn't work if bucket has private access
@@ -298,30 +226,6 @@ func getPublicObjectURL(endpoint string, endpointCdn string, bucketName string, 
 	}
 
 	return directUrl
-}
-
-func GetPresignedObject(ctx context.Context, key KeyS3, objectName string) (string, error) {
-	accessKey := key.AccessKey
-	secKey := key.SecretKey
-	endpoint := key.EndPointApi
-	endpointCdn := key.EndPointCdn
-	bucketName := key.Bucket
-	isSSL := key.IsSSL
-
-	client, err := minio.New(endpoint, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secKey, ""), Secure: isSSL})
-	if err != nil {
-		slog.Error("failed to create minio client", "error", err)
-		return "", err
-	}
-
-	presignedURL, err := client.PresignedGetObject(ctx, bucketName, objectName, time.Duration(1000)*time.Second, nil)
-	if err != nil {
-		slog.Error("failed to create presigned url", "error", err)
-		return "", err
-	}
-	url := getPublicObjectURL(endpoint, endpointCdn, bucketName, presignedURL.Path, isSSL)
-
-	return url, nil
 }
 
 type PutObjectRepsonse struct {
@@ -356,42 +260,4 @@ func EntityPutPresignedObject(ctx context.Context, request PutObjectUpload, enti
 	}
 
 	return out, nil
-}
-
-func GetURLS3ExcelLot(ctx context.Context, content []byte, fileName string, key KeyS3) (string, error) {
-	endpoint := key.EndPointApi
-	endpoint_cdn := key.EndPointCdn
-	accessKey := key.AccessKey
-	secKey := key.SecretKey
-	isSSL := key.IsSSL
-	bucketName := key.Bucket
-
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKey, secKey, ""),
-		Secure: isSSL,
-	})
-	if err != nil {
-		slog.Error("failed to create minio client", "error", err)
-		return "", err
-	}
-	keyURL := fmt.Sprintf("lots/%s/%s", time.Now().Format("20060102"), fileName)
-	_, err = client.PutObject(ctx, bucketName, keyURL, bytes.NewReader(content), int64(len(content)), minio.PutObjectOptions{
-		ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-	})
-	if err != nil {
-		slog.Error("failed to upload object", "error", err)
-		return "", err
-	}
-	url := ""
-	if endpoint_cdn != "" && endpoint_cdn != endpoint {
-		endpoint = endpoint_cdn
-	}
-	file_path := fmt.Sprintf("/%s/%s", bucketName, keyURL)
-	if isSSL {
-		url = fmt.Sprintf("https://%s%s", endpoint, file_path)
-	} else {
-		url = fmt.Sprintf("http://%s%s", endpoint, file_path)
-	}
-
-	return url, nil
 }
