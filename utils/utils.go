@@ -2,7 +2,10 @@
 package utils
 
 import (
+	"crypto/rand"
 	"math"
+	"math/big"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -93,4 +96,30 @@ func IndexMap[T any, K comparable](arr []T, callback func(iter T) K) map[K]T {
 func MathRoundPrice(number float64) float64 {
 	number = math.Round(number*1000) / 1000
 	return number
+}
+
+func Retry[K any](attempts int, sleep time.Duration, f func() (K, error)) (rs K, err error) {
+	rs, err = f()
+	if err == nil {
+		return
+	}
+	for i := 0; i < attempts-1; i++ {
+		jitter := time.Duration(RandomInt(int(sleep)))
+		sleep = sleep + jitter/2
+		time.Sleep(sleep)
+		rs, err = f()
+		if err == nil {
+			return
+		}
+	}
+
+	return
+}
+
+func RandomInt(max int) int {
+	nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	if err != nil {
+		return 0
+	}
+	return int(nBig.Int64())
 }

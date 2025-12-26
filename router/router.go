@@ -165,6 +165,8 @@ func setupRouter(fiber_app *fiber.App) {
 	// settings
 	api_admin.Get("/setting.json", middleware.AuthorizeAdmin("setting", "view"), handler.GetSystemSetting)
 	api_admin.Patch("/setting.json", middleware.AuthorizeAdmin("setting", "manage"), handler.AdminUpdateSetting)
+	// test send mail
+	api_admin.Post("/setting/test-mail.json", middleware.AuthorizeAdmin("setting", "manage"), handler.AdminTestSendMail)
 
 	// documents
 	api_admin.Get("/documents/:id.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminGetDocument)

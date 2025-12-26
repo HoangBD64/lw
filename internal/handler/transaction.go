@@ -4,6 +4,7 @@ import (
 	"core/internal/domain_model/model"
 	"core/internal/repo"
 	"core/pkg/payment"
+	"core/utils"
 	"core/utils/base"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -277,7 +279,9 @@ func FinishPayment(c *fiber.Ctx) error {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Error CapturePayment", Error: err})
 		}
 
-		up, err = UserCreateUserProcedureAfterPayment(transaction, fnBody)
+		up, err = utils.Retry(3, 2*time.Second, func() (model.UserProcedure, error) {
+			return UserCreateUserProcedureAfterPayment(transaction, fnBody)
+		})
 		if err != nil {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Error creating user procedure", Error: err})
 		}
@@ -311,7 +315,9 @@ func FinishPayment(c *fiber.Ctx) error {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Status Order payment not Success", ErrorCode: "ORDER_NOT_COMPLETED"})
 		}
 
-		up, err = UserCreateUserProcedureAfterPayment(transaction, fnBody)
+		up, err = utils.Retry(3, 2*time.Second, func() (model.UserProcedure, error) {
+			return UserCreateUserProcedureAfterPayment(transaction, fnBody)
+		})
 		if err != nil {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Error creating user procedure", Error: err})
 		}

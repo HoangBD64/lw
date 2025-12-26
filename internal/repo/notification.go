@@ -73,11 +73,16 @@ func UpdateReadAtAllNotification(user model.User) (int64, error) {
 	return tx.RowsAffected, tx.Error
 }
 
-func AdminGetNotifications(ctx context.Context, query Query) ([]model.Notification, int, error) {
+func AdminGetNotifications(ctx context.Context, query Query, isRoleAdmin bool) ([]model.Notification, int, error) {
 	var out []model.Notification
 	var count int64
 
-	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id IS NULL")
+	tx := app.Database.DB.Model(&model.Notification{})
+	if isRoleAdmin {
+		tx = tx.Where("user_id IS NULL AND admin_id IS NULL")
+	} else {
+		tx = tx.Where("user_id IS NULL AND admin_id = ?", query.AdminID)
+	}
 
 	if query.Search != "" {
 		tx = tx.Where("name ILIKE ? ", "%"+query.Search+"%")
@@ -108,9 +113,16 @@ func AdminGetNotificationDetails(ctx context.Context, id int) (model.Notificatio
 	return notification, nil
 }
 
-func AminUpdateReadAtAllNotification(ctx context.Context) (int, error) {
+func AdminUpdateReadAtAllNotification(ctx context.Context, isRoleAdmin bool, adminID uuid.UUID) (int, error) {
 	now := time.Now()
-	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id IS NULL").Where("read_at IS NULL").Select("ReadAt").Updates(&model.Notification{ReadAt: &now})
+	tx := app.Database.DB.Model(&model.Notification{})
+	if isRoleAdmin {
+		tx = tx.Where("user_id IS NULL AND admin_id IS NULL")
+	} else {
+		tx = tx.Where("user_id IS NULL AND admin_id = ?", adminID)
+	}
+
+	tx = tx.Where("read_at IS NULL").Select("ReadAt").Updates(&model.Notification{ReadAt: &now})
 
 	if err := tx.Error; err != nil {
 		return 0, err

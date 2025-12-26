@@ -11,3 +11,7 @@ type AdminUpdateSettingRequest struct {
 	Metadata datatypes.JSON `json:"metadata"`
 	Contant  float64        `json:"contant"`
 }
+
+type TestSendMailRequest struct {
+	Address string `json:"address" validate:"required,email"`
+}

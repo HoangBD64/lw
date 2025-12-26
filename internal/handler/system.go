@@ -5,11 +5,13 @@ import (
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
+	"core/pkg/send_mail"
 	"core/utils/base"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/datatypes"
@@ -56,6 +58,20 @@ func GetSystemSetting(c *fiber.Ctx) error {
 		setting = createdSetting
 	}
 
+	if setting.Type == model.PAYMENT_INFO {
+		data := []model.PaymentInfoPublic{}
+		if err := json.Unmarshal(setting.Metadata, &data); err != nil {
+			slog.Error("failed to unmarshal payment info data", "error", err)
+		}
+
+		jsonBytes, err := json.Marshal(data)
+		if err != nil {
+			slog.Error("failed to marshal payment info public data", "error", err)
+		} else {
+			setting.Metadata = jsonBytes
+		}
+	}
+
 	if setting.Type == model.STORAGE_CREDENTIAL {
 		credential := model.StorageCredential{}
 		if err := json.Unmarshal(setting.Metadata, &credential); err != nil {
@@ -71,6 +87,21 @@ func GetSystemSetting(c *fiber.Ctx) error {
 		}
 
 		setting.Metadata = credentialJson
+	}
+
+	if setting.Type == model.MAIL_SYSTEM {
+		mailSetting := model.SystemSettingMail{}
+		if err := json.Unmarshal(setting.Metadata, &mailSetting); err != nil {
+			slog.ErrorContext(context.TODO(), "failed to unmarshal storage credential data", "error", err)
+		}
+
+		mailSetting.MAIL_PASS = ""
+		mailSettingJson, err := json.Marshal(mailSetting)
+		if err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "could not process fetched data", Error: err})
+		}
+
+		setting.Metadata = mailSettingJson
 	}
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "ok", Data: setting})
@@ -155,6 +186,30 @@ func AdminUpdateSetting(c *fiber.Ctx) error {
 
 		input.Metadata = newSetting
 	}
+
+	if setting_found.Type == model.MAIL_SYSTEM {
+		newData := model.SystemSettingMail{}
+		if err := json.Unmarshal(input.Metadata, &newData); err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "could not process requested storage config", Error: err})
+		}
+
+		oldData := model.SystemSettingMail{}
+		if err := json.Unmarshal(setting_found.Metadata, &oldData); err != nil {
+			slog.ErrorContext(context.TODO(), "failed to unmarshal existing storage credential data", "error", err)
+		}
+
+		if newData.MAIL_PASS == "" {
+			newData.MAIL_PASS = oldData.MAIL_PASS
+		}
+
+		newSetting, err := json.Marshal(newData)
+		if err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "could not process requested data", Error: err})
+		}
+
+		input.Metadata = newSetting
+	}
+
 	setting_found.Resource = input.Resource
 	setting_found.Metadata = input.Metadata
 	setting_found.Contant = input.Contant
@@ -164,6 +219,51 @@ func AdminUpdateSetting(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "ok"})
+}
+
+func AdminTestSendMail(c *fiber.Ctx) error {
+	var input domain.TestSendMailRequest
+	if err := c.BodyParser(&input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "bad request", Error: err})
+	}
+
+	if err := appUtils.Validate(context.TODO(), &input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "bad request", Error: err})
+	}
+
+	setting, err := repo.GetSystemSetting(context.TODO(), model.MAIL_SYSTEM)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(base.BaseResponse{Status: false, Message: "failed to get data", Error: err})
+		}
+	}
+
+	mail := model.SystemSettingMail{}
+	if err := json.Unmarshal(setting.Metadata, &mail); err != nil {
+		slog.ErrorContext(context.TODO(), "failed to unmarshal existing storage credential data", "error", err)
+	}
+
+	mailInput := send_mail.InputMail{
+		Subject: "LegalSwift Mail Test",
+		Content: "<p>This is a test email to verify mail settings.</p>",
+		Mail:    input.Address,
+	}
+
+	port, _ := strconv.Atoi(mail.MAIL_PORT)
+	mailConfig := send_mail.Config{
+		PORT:        port,
+		SENDER_MAIL: mail.MAIL_SENDER,
+		ACCOUNT:     mail.MAIL_ACCOUNT,
+		PASS:        mail.MAIL_PASS,
+		HOST:        mail.MAIL_HOST,
+		HeaderName:  mail.MAIL_HEADER,
+	}
+
+	if err := send_mail.SendMail(mailInput, mailConfig); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "failed to send test mail", Error: err})
+	}
+
+	return c.JSON(base.BaseResponse{Status: true, Message: "test mail sent successfully"})
 }
 
 func checkCurrentSystemAdmin(c *fiber.Ctx) (model.SystemAdmin, error) {

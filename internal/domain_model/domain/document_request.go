@@ -24,16 +24,3 @@ type DocumentUpdateRequest struct {
 type DocumentDeleteRequest struct {
 	IDs []int `json:"ids" validate:"required,gt=0"`
 }
-
-type DocumentAssignRequest struct {
-	Assignments []DocumentAssign `json:"assignments" validate:"required,dive"`
-}
-
-type DocumentUnassignRequest struct {
-	Unassignments []DocumentAssign `json:"unassignments" validate:"required,dive"`
-}
-
-type DocumentAssign struct {
-	UserID     string `json:"user_id" validate:"required"`
-	DocumentID int    `json:"document_id" validate:"required,gt=0"`
-}

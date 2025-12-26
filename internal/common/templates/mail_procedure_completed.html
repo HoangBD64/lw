@@ -40,15 +40,16 @@
             <strong>Procedure Information</strong>
             <ul>
                 <li>Procedure name: <strong>{{.ProcedureName}}</strong></li>
-                {{if .ProcedureTitle}}<li>Title: <strong>{{.ProcedureTitle}}</strong></li>{{end}}
+                {{if .CompanyName}}<li>Company Name: <strong>{{.CompanyName}}</strong></li>{{end}}
                 {{if .Status}}<li>Status: <strong>{{.Status}}</strong></li>{{end}}
                 <!-- {{if .DueDays}}<li>Estimated deadline: <strong>{{.DueDays}} days</strong></li>{{end}} -->
-                {{if .Cost}}<li>Cost: <strong>{{.Cost}}</strong></li>{{end}}
-                <li>Procedure ID: <strong>#{{.UserProcedureID}}</strong></li>
+                <!-- {{if .Cost}}<li>Cost: <strong>{{.Cost}}</strong></li>{{end}} -->
+                <li>Procedure ID: <strong>{{.UserProcedureID}}</strong></li>
             </ul>
         </div>
         <div class="section">
-            <p>You can view the completion report and related information in the system. If you need any assistance, please contact us.</p>
+            <p>You can view the completion report and related information in the system. If you need any assistance,
+                please contact us.</p>
             <p class="muted">Thank you for your trust and for using our service.</p>
         </div>
     </div>
