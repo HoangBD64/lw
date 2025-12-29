@@ -10,6 +10,10 @@ import (
 	"gorm.io/gorm"
 )
 
+// user_id null + admin_id null => admin notification
+// user_id null + admin_id  	=> lawyer notification
+// user_id 		+ admin_id null => user notification
+
 func CreateNotification(ctx context.Context, noti model.Notification) (model.Notification, error) {
 	tx := app.Database.DB.Create(&noti)
 	if err := tx.Error; err != nil {
@@ -50,7 +54,7 @@ func UpdateNotification(noti model.Notification, user model.User) (model.Notific
 }
 
 func GetTotalNotificationType(query Query, user model.User) (int64, error) {
-	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id = ?", user.ID)
+	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id = ? AND admin_id IS NULL", user.ID)
 	if query.Type != "" {
 		tx = tx.Where("type = ?", query.Type)
 	}
@@ -73,7 +77,7 @@ func UpdateReadAtAllNotification(user model.User) (int64, error) {
 	return tx.RowsAffected, tx.Error
 }
 
-func AdminGetNotifications(ctx context.Context, query Query, isRoleAdmin bool) ([]model.Notification, int, error) {
+func AdminGetNotifications(ctx context.Context, query Query, isRoleAdmin bool) ([]model.Notification, int64, error) {
 	var out []model.Notification
 	var count int64
 
@@ -99,7 +103,7 @@ func AdminGetNotifications(ctx context.Context, query Query, isRoleAdmin bool) (
 		return nil, 0, err
 	}
 
-	return out, int(count), nil
+	return out, count, nil
 }
 
 func AdminGetNotificationDetails(ctx context.Context, id int) (model.Notification, error) {
@@ -131,12 +135,17 @@ func AdminUpdateReadAtAllNotification(ctx context.Context, isRoleAdmin bool, adm
 	return int(tx.RowsAffected), nil
 }
 
-func AdminGetTotalNotificationType(ctx context.Context, query Query) (int, error) {
+func AdminGetTotalNotificationType(ctx context.Context, query Query) (int64, error) {
 	var count int64
 	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id IS NULL")
 
 	if query.Type != "" {
 		tx = tx.Where("type = ?", query.Type)
+	}
+	if query.AdminID != nil {
+		tx = tx.Where("admin_id = ? AND user_id IS NULL", *query.AdminID)
+	} else {
+		tx = tx.Where("admin_id IS NULL AND user_id IS NULL")
 	}
 
 	switch query.Status {
@@ -150,7 +159,7 @@ func AdminGetTotalNotificationType(ctx context.Context, query Query) (int, error
 		return 0, err
 	}
 
-	return int(count), nil
+	return count, nil
 }
 
 func AdminUpdateNotification(ctx context.Context, noti model.Notification) (model.Notification, error) {

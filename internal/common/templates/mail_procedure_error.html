@@ -44,12 +44,20 @@
                 {{if .Status}}<li>Current status: <strong>{{.Status}}</strong></li>{{end}}
                 <!-- {{if .DueDays}}<li>Processing deadline: <strong>{{.DueDays}} days</strong></li>{{end}} -->
                 <!-- {{if .Cost}}<li>Estimated cost: <strong>{{.Cost}}</strong></li>{{end}} -->
-                <li>Procedure ID: <strong>{{.UserProcedureID}}</strong></li>
+                <li>Procedure Number: <strong>{{.UserProcedureNumber}}</strong></li>
             </ul>
         </div>
         <div class="section">
             <p>Please log in to the system to review the detailed steps, provide additional information if required, or
                 contact support.</p>
+            {{if .URL}}
+            <p>
+                <a href="{{.URL}}"
+                    style="display:inline-block;background:#0b5cff;color:#fff;text-decoration:none;padding:10px 14px;border-radius:6px;">
+                    Open Website
+                </a>
+            </p>
+            {{end}}
             <p class="muted">Thank you for using our service.</p>
         </div>
     </div>

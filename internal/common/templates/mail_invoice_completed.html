@@ -42,11 +42,19 @@
                 <li>Procedure: <strong>{{.ProcedureName}}</strong></li>
                 {{if .CompanyName}}<li>Company Name: <strong>{{.CompanyName}}</strong></li>{{end}}
                 {{if .Cost}}<li>Requested amount: <strong>{{.Cost}}</strong></li>{{end}}
-                <li>Procedure ID: <strong>{{.UserProcedureID}}</strong></li>
+                <li>Procedure Number: <strong>{{.UserProcedureNumber}}</strong></li>
             </ul>
         </div>
         <div class="section">
             <p>The procedure will continue as planned. You can track the progress and invoices in the system.</p>
+            {{if .URL}}
+            <p>
+                <a href="{{.URL}}"
+                    style="display:inline-block;background:#0b5cff;color:#fff;text-decoration:none;padding:10px 14px;border-radius:6px;">
+                    Open Website
+                </a>
+            </p>
+            {{end}}
             <p class="muted">Thank you for your payment.</p>
         </div>
     </div>

@@ -87,12 +87,24 @@ func VerifyUserSSO(c *fiber.Ctx) error {
 		SsoID:    current_user.SSO_ID,
 		Status:   current_user.Status,
 		Token:    t,
-		UserType: "seller",
+		UserType: "user",
 	}
 	now := time.Now()
 	current_user.LastLogin = &now
 	go repo.UpdateUserLoginTime(current_user)
+	go PreDefaultSettingsUser(current_user)
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: userReturn})
+}
+
+func PreDefaultSettingsUser(user model.User) error {
+	// setup noti default
+	emailEnable := true
+	_, err := repo.UpsertNotificationPreferenceByUserID(user.ID, emailEnable)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func GetUserDetail(c *fiber.Ctx) error {

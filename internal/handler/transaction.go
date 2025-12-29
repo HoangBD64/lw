@@ -119,7 +119,7 @@ func InitPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "This payment method is not available yet.", ErrorCode: "PAYMENT_METHOD_DISABLE"})
 	}
 
-	up, err := repo.GetProcedureByID(input.ProcedureID)
+	up, err := repo.UserGetProcedureByID(input.ProcedureID)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Procedure not found", Error: err})
 	}
@@ -255,7 +255,7 @@ func FinishPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "This payment method is not available yet.", ErrorCode: "PAYMENT_METHOD_DISABLE"})
 	}
 
-	_, err = repo.GetProcedureByID(lo.FromPtr(transaction.ProcedureID))
+	_, err = repo.UserGetProcedureByID(lo.FromPtr(transaction.ProcedureID))
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Procedure not found", Error: err})
 	}
@@ -333,7 +333,7 @@ func FinishPayment(c *fiber.Ctx) error {
 }
 
 func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body FinishBody) (model.UserProcedure, error) {
-	procedure_template, err := repo.GetProcedureByID(lo.FromPtr(transaction.ProcedureID))
+	procedure_template, err := repo.UserGetProcedureByID(lo.FromPtr(transaction.ProcedureID))
 	if err != nil {
 		slog.Debug("Error get ProcedureTemplateByID", "err", err)
 		return model.UserProcedure{}, err

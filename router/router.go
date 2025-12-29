@@ -197,6 +197,7 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Patch("/user-procedures/admin/unassign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUnassignUserProcedure)
 
 	// user procedure step
+	api_admin.Get("/user-procedures-steps.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminListUserProcedureSteps)
 	api_admin.Patch("/user-procedures/:id/steps/assign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminAssignLawyerToProcedureStep)
 	api_admin.Patch("/user-procedures/steps/status.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedureStepStatus)
 	api_admin.Patch("/user-procedures/steps/:id.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUpdateUserProcedureStep)

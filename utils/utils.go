@@ -3,6 +3,7 @@ package utils
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"math"
 	"math/big"
 	"time"
@@ -122,4 +123,12 @@ func RandomInt(max int) int {
 		return 0
 	}
 	return int(nBig.Int64())
+}
+
+func ToJSON (v any) ([]byte, error) {
+	return json.Marshal(v)
+}
+
+func FromJSON (data []byte, v any) error {
+	return json.Unmarshal(data, v)
 }

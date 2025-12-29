@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"core/app"
 	"core/internal/common/templates"
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
@@ -48,10 +49,15 @@ func AdminCreateProcedure(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Create Procedure", Error: err})
 	}
 
+	metadata := model.NotiMetadata{
+		Content: lo.ToPtr(fmt.Sprintf("Procedure template <strong>%s</strong> created by Admin. Please review the changes.", p.Name)),
+	}
+	metadataJSON, _ := utils.ToJSON(metadata)
+
 	notification := model.Notification{
-		Title:   "Procedure created",
-		Type:    model.NOTIFICATION_PROCEDURE,
-		Content: fmt.Sprintf("Procedure <strong>%s</strong> created by Admin. Please review the changes.", p.Name),
+		Title:    "Procedure created",
+		Type:     model.NOTIFICATION_PROCEDURE,
+		Metadata: metadataJSON,
 	}
 	go repo.CreateNotification(c.Context(), notification)
 
@@ -88,10 +94,15 @@ func AdminUpdateProcedure(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Update Procedure", Error: err})
 	}
 
+	metadata := model.NotiMetadata{
+		Content: lo.ToPtr(fmt.Sprintf("Procedure template <strong>%s</strong> updated by Admin. Please review the changes.", p.Name)),
+	}
+	metadataJSON, _ := utils.ToJSON(metadata)
+
 	notification := model.Notification{
-		Title:   "Procedure updated",
-		Type:    model.NOTIFICATION_PROCEDURE,
-		Content: fmt.Sprintf("Procedure <strong>%s</strong> updated by Admin. Please review the changes.", p.Name),
+		Title:    "Procedure updated",
+		Type:     model.NOTIFICATION_PROCEDURE,
+		Metadata: metadataJSON,
 	}
 	go repo.CreateNotification(c.Context(), notification)
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
@@ -199,10 +210,14 @@ func AdminBulkUpsertProcedure(c *fiber.Ctx) error {
 		savedProc.ProcedureSteps = savedSteps
 	}
 
+	metadata := model.NotiMetadata{
+		Content: lo.ToPtr(fmt.Sprintf("Procedure template <strong>%s</strong> updated by Admin. Please review the changes.", savedProc.Name)),
+	}
+	metadataJSON, _ := utils.ToJSON(metadata)
 	notification := model.Notification{
-		Title:   "Procedure updated",
-		Type:    model.NOTIFICATION_PROCEDURE,
-		Content: fmt.Sprintf("Procedure <strong>%s</strong> updated by Admin. Please review the changes.", savedProc.Name),
+		Title:    "Procedure updated",
+		Type:     model.NOTIFICATION_PROCEDURE,
+		Metadata: metadataJSON,
 	}
 	go repo.CreateNotification(c.Context(), notification)
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: savedProc})
@@ -254,6 +269,10 @@ func AdminUpdateProcedureStep(c *fiber.Ctx) error {
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "", Error: err})
 	}
+	proc, err := repo.AdminGetProcedureByID(step.ProcedureID)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Get Procedure Failed", Error: err})
+	}
 
 	step.ID = idInt
 	step.Name = input.Name
@@ -268,10 +287,15 @@ func AdminUpdateProcedureStep(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't UpdateProcedureStep", Error: err})
 	}
 
+	metadata := model.NotiMetadata{
+		UserProcedureID: nil,
+		Content:         lo.ToPtr(fmt.Sprintf("Step <strong>%s</strong> in Procedure template <strong>%s</strong> has been updated.", step.Name, proc.Name)),
+	}
+	metadataJSON, _ := utils.ToJSON(metadata)
 	notification := model.Notification{
-		Title:   "Procedure steps updated",
-		Type:    model.NOTIFICATION_PROCEDURE,
-		Content: fmt.Sprintf("Procedure step <strong>%s</strong> updated by Admin. Please review the changes.", step.Name),
+		Title:    "Procedure steps updated",
+		Type:     model.NOTIFICATION_PROCEDURE,
+		Metadata: metadataJSON,
 	}
 	go repo.CreateNotification(c.Context(), notification)
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
@@ -341,7 +365,7 @@ func AdminAssignLawyerToProcedureStep(c *fiber.Ctx) error {
 		}
 	}
 
-	ups, err := repo.GetUserProcedureStepsByUserProcedureAndStepIDs(userProcedureID, stepIDs)
+	ups, err := repo.AdminGetUserProcedureStepsByUserProcedureAndStepIDs(userProcedureID, stepIDs)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Fetch user procedure steps failed", Error: err})
 	}
@@ -354,7 +378,7 @@ func AdminAssignLawyerToProcedureStep(c *fiber.Ctx) error {
 		}
 	}
 
-	updated, err := repo.BulkAssignLawyerAdminToUserProcedureSteps(ups)
+	updated, err := repo.AdminBulkAssignToUserProcedureSteps(ups)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Assign lawyer failed", Error: err})
 	}
@@ -463,15 +487,26 @@ func AdminAssignUserProcedure(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Assign failed", Error: err})
 	}
 
-	ids := make([]string, len(input.UserProcedureID))
-	for i, id := range input.UserProcedureID {
-		ids[i] = strconv.Itoa(id)
+	ids := make([]string, 0, len(input.UserProcedureID))
+	for _, upID := range input.UserProcedureID {
+		upItem, _ := repo.GetUserProcedureByID(upID)
+		if upItem.ProcNumber != nil && *upItem.ProcNumber != "" {
+			ids = append(ids, *upItem.ProcNumber)
+		} else {
+			ids = append(ids, strconv.Itoa(upID))
+		}
 	}
+
+	metadata := model.NotiMetadata{
+		UserProcedureID: lo.ToPtr(input.UserProcedureID[0]),
+		Content:         lo.ToPtr(fmt.Sprintf("Procedures <strong>%s</strong> have been assigned to you by Admin.", strings.Join(ids, ", "))),
+	}
+	metadataJSON, _ := utils.ToJSON(metadata)
 	notification := model.Notification{
-		AdminID: &adminAssign.ID,
-		Title:   "Procedure assigned",
-		Type:    model.NOTIFICATION_PROCEDURE,
-		Content: fmt.Sprintf("Procedures <strong>%s</strong> have been assigned to you by Admin.", strings.Join(ids, ", ")),
+		AdminID:  &adminAssign.ID,
+		Title:    "Procedure assigned",
+		Type:     model.NOTIFICATION_PROCEDURE,
+		Metadata: metadataJSON,
 	}
 	go repo.CreateNotification(c.Context(), notification)
 
@@ -522,14 +557,17 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 		if up.Status != nil {
 			status = *up.Status
 		}
+		websiteURL := strings.TrimSpace(app.Config("WEB_BASE_URL"))
+
 		data := map[string]any{
-			"UserName":        user.Name,
-			"ProcedureName":   up.TemplateName,
-			"CompanyName":  lo.FromPtr(up.CompanyName),
-			"Status":          status,
-			"DueDays":         dueDays,
-			"Cost":            fmt.Sprintf("$%.2f", cost),
-			"UserProcedureID": up.ID,
+			"UserName":            user.Name,
+			"ProcedureName":       up.TemplateName,
+			"CompanyName":         lo.FromPtr(up.CompanyName),
+			"Status":              status,
+			"DueDays":             dueDays,
+			"Cost":                fmt.Sprintf("$%.2f", cost),
+			"UserProcedureNumber": up.ProcNumber,
+			"URL":                 websiteURL,
 		}
 
 		body, err := templates.RenderMailTemplate(tmpl, data)
@@ -538,7 +576,17 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 			continue
 		}
 
-		if err := service.CreateNotifyInApp(&model.Notification{UserID: &user.ID, Title: subject, Content: fmt.Sprintf("%s - %s", up.TemplateName, mailType), Type: model.NOTIFICATION_PROCEDURE}); err != nil {
+		Metadata := model.NotiMetadata{
+			UserProcedureID: lo.ToPtr(up.ID),
+			Content:         lo.ToPtr(fmt.Sprintf("%s - %s - %s", up.TemplateName, mailType, *up.ProcNumber)),
+		}
+		metadataJSON, _ := utils.ToJSON(Metadata)
+		err = service.CreateNotifyInApp(&model.Notification{
+			UserID:   &user.ID,
+			Title:    subject,
+			Metadata: metadataJSON,
+			Type:     model.NOTIFICATION_PROCEDURE})
+		if err != nil {
 			slog.Error("Failed to create in-app notification", "user_id", user.ID, "error", err)
 		}
 
@@ -566,15 +614,24 @@ func AdminUnassignUserProcedure(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Unassign failed", Error: err})
 	}
 
-	ids := make([]string, len(input.UserProcedureID))
-	for i, id := range input.UserProcedureID {
-		ids[i] = strconv.Itoa(id)
+	ids := make([]string, 0, len(input.UserProcedureID))
+	for _, upID := range input.UserProcedureID {
+		upItem, _ := repo.GetUserProcedureByID(upID)
+		if upItem.ProcNumber != nil && *upItem.ProcNumber != "" {
+			ids = append(ids, *upItem.ProcNumber)
+		} else {
+			ids = append(ids, strconv.Itoa(upID))
+		}
 	}
 
+	Metadata := model.NotiMetadata{
+		Content: lo.ToPtr(fmt.Sprintf("Procedures %s have been unassigned by Admin.", strings.Join(ids, ", "))),
+	}
+	metadataJSON, _ := utils.ToJSON(Metadata)
 	notification := model.Notification{
-		Title:   "Procedure unassigned",
-		Type:    model.NOTIFICATION_PROCEDURE,
-		Content: fmt.Sprintf("Procedures <strong>%s</strong> have been unassigned by Admin.", strings.Join(ids, ", ")),
+		Title:    "Procedure unassigned",
+		Type:     model.NOTIFICATION_PROCEDURE,
+		Metadata: metadataJSON,
 	}
 	go repo.CreateNotification(c.Context(), notification)
 
@@ -651,11 +708,21 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 		userProcedure.Status = &status
 		go repo.AdminUpdateUserProcedure(&userProcedure)
 		go SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_PROCEDURE_ERROR)
+		procNum := lo.FromPtr(userProcedure.ProcNumber)
+		if procNum == "" {
+			procNum = fmt.Sprintf("%d", userProcedure.ID)
+		}
+
+		Metadata := model.NotiMetadata{
+			UserProcedureID: lo.ToPtr(ups.UserProcedureID),
+			Content:         lo.ToPtr(fmt.Sprintf("Procedure step <strong>%s</strong> of procedure <strong>%s</strong> has an error. Please review the changes.", ups.Name, procNum)),
+		}
+		metadataJSON, _ := utils.ToJSON(Metadata)
 		notification := model.Notification{
-			UserID:  userProcedure.UserID,
-			Title:   "Procedure step error",
-			Type:    model.NOTIFICATION_PROCEDURE,
-			Content: fmt.Sprintf("Procedure step <strong>%s</strong> of procedure <strong>%d</strong> has an error. Please review the changes.", ups.Name, userProcedure.ID),
+			UserID:   userProcedure.UserID,
+			Title:    "Procedure step error",
+			Type:     model.NOTIFICATION_PROCEDURE,
+			Metadata: metadataJSON,
 		}
 		go repo.CreateNotification(c.Context(), notification)
 	}
@@ -695,11 +762,17 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 				status := model.USER_PROCEDURE_COMPLETED
 				up.Status = &status
 				go SendMailToUser([]int{userProcedureID}, model.NOTI_PROCEDURE_COMPLETED)
+
+				Metadata := model.NotiMetadata{
+					UserProcedureID: lo.ToPtr(up.ID),
+					Content:         lo.ToPtr(fmt.Sprintf("Procedure <strong>%s</strong> has been completed successfully.", lo.FromPtr(up.ProcNumber))),
+				}
+				metadataJSON, _ := utils.ToJSON(Metadata)
 				notification := model.Notification{
-					UserID:  up.UserID,
-					Title:   "Procedure completed",
-					Type:    model.NOTIFICATION_PROCEDURE,
-					Content: fmt.Sprintf("Congratulations! Your procedure <strong>%s</strong> has been completed.", up.TemplateName),
+					UserID:   up.UserID,
+					Title:    "Procedure completed",
+					Type:     model.NOTIFICATION_PROCEDURE,
+					Metadata: metadataJSON,
 				}
 				go repo.CreateNotification(c.Context(), notification)
 			} else if anyError {
@@ -716,6 +789,23 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 		}(ups.UserProcedureID)
 	}
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
+}
+
+func AdminListUserProcedureSteps(c *fiber.Ctx) error {
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
+	var query repo.Query
+	query.Parse(c)
+	if admin.IsLawyer() {
+		query.AdminID = &admin.ID
+	}
+	steps, total, err := repo.AdminGetUserProcedureSteps(query)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't ListUserProcedureSteps", Error: err})
+	}
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: steps, Total: &total})
 }
 
 func UserGetProcedures(c *fiber.Ctx) error {
@@ -739,7 +829,7 @@ func UserGetProcedureDetail(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid procedure ID", Error: err})
 	}
 
-	ups, err := repo.GetUserProcedureDetail(procedureID, user.ID)
+	ups, err := repo.UserGetUserProcedureDetail(procedureID, user.ID)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get failed", Error: err})
 	}
@@ -755,7 +845,7 @@ func UserGetProcedure(c *fiber.Ctx) error {
 	if err != nil || procedureID == 0 {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Invalid procedure ID", Error: err})
 	}
-	proc, err := repo.GetProcedureByID(procedureID)
+	proc, err := repo.UserGetProcedureByID(procedureID)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get procedure failed", Error: err})
 	}
@@ -788,7 +878,7 @@ func UserListUserProcedures(c *fiber.Ctx) error {
 	}
 	var q repo.Query
 	q.Parse(c)
-	items, total, err := repo.ListUserProceduresByUser(user.ID, q)
+	items, total, err := repo.UserGetUserProceduresByUser(user.ID, q)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get procedures failed", Error: err})
 	}
@@ -902,11 +992,21 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure step failed", Error: err})
 	}
 
+	procNum := lo.FromPtr(up.ProcNumber)
+	if procNum == "" {
+		procNum = fmt.Sprintf("%d", up.ID)
+	}
+
+	Metadata := model.NotiMetadata{
+		UserProcedureID: lo.ToPtr(ups.UserProcedureID),
+		Content:         lo.ToPtr(fmt.Sprintf("Step %s in procedure %s has been updated.", ups.Name, procNum)),
+	}
+	metadataJSON, _ := utils.ToJSON(Metadata)
 	notification := model.Notification{
-		AdminID: up.AdminID,
-		Title:   "Review Required",
-		Content: fmt.Sprintf("Step <strong>%s</strong> in procedure <strong>%d</strong> has been updated. Please review the changes.", ups.Name, up.ID),
-		Type:    model.NOTIFICATION_PROCEDURE,
+		AdminID:  up.AdminID,
+		Title:    "Review Required",
+		Type:     model.NOTIFICATION_PROCEDURE,
+		Metadata: metadataJSON,
 	}
 	go repo.CreateNotification(c.Context(), notification)
 

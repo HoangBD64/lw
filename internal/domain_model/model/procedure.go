@@ -47,17 +47,18 @@ type ProcedureStep struct {
 
 type UserProcedureStep struct {
 	ID              int            `gorm:"primaryKey,autoIncrement" json:"id"`
-	UserProcedureID int            `json:"user_procedure_id"`
 	ProcedureStepID int            `json:"procedure_step_id"`
+	UserProcedureID int            `json:"user_procedure_id"`
+	UserProcedure   *UserProcedure `json:"user_procedure,omitempty"`
 	Name            string         `json:"name"`
-	DueDate         *int           `json:"due_date"`
+	DueDate         *int           `json:"due_date,omitempty"`
 	AdminID         *uuid.UUID     `json:"admin_id,omitempty"`
 	Admin           *Admin         `json:"admin,omitempty"`
-	Notes           string         `json:"notes"`
-	Position        int            `json:"position"`
-	Status          string         `json:"status" gorm:"index"` // pending|processing|error|done
-	Data            datatypes.JSON `json:"data"`
-	FeedBack        datatypes.JSON `json:"feedback"`
+	Notes           string         `json:"notes,omitempty"`
+	Position        int            `json:"position,omitempty"`
+	Status          string         `json:"status,omitempty" gorm:"index"` // pending|processing|error|done
+	Data            datatypes.JSON `json:"data,omitempty"`
+	FeedBack        datatypes.JSON `json:"feedback,omitempty"`
 	Description     *string        `json:"description,omitempty"`
 	UserUpdated     *bool          `json:"user_updated,omitempty"`
 	UserCompleted   *bool          `json:"user_completed,omitempty" gorm:"default:false"`
@@ -71,19 +72,20 @@ type UserProcedure struct {
 	ID                  int                 `gorm:"primaryKey,autoIncrement" json:"id"`
 	UserID              *uuid.UUID          `json:"user_id,omitempty"`
 	User                *User               `json:"user,omitempty"`
-	ProcedureID         int                 `json:"procedure_id"`
+	ProcedureID         int                 `json:"procedure_id,omitempty"`
 	Procedure           *Procedure          `json:"procedure,omitempty"`
 	AdminID             *uuid.UUID          `json:"admin_id,omitempty"`
 	Admin               *Admin              `json:"admin,omitempty"`
-	TemplateName        string              `json:"template_name"`
-	State               *string             `json:"state"`
+	TemplateName        string              `json:"template_name,omitempty"`
+	ProcNumber          *string             `json:"proc_number,omitempty" gorm:"index"`
+	State               *string             `json:"state,omitempty"`
 	IsHaveTicket        *bool               `json:"is_have_ticket,omitempty"`
 	IsSendNoti          *bool               `json:"is_send_noti,omitempty" gorm:"default:false"`
-	Status              *string             `json:"status" gorm:"index"`
-	Note                *string             `json:"note"`
-	CompanyName         *string             `json:"company_name"`
-	CompanyType         *string             `json:"company_type"`
-	DueDate             *int                `json:"due_date"`
+	Status              *string             `json:"status,omitempty" gorm:"index"`
+	Note                *string             `json:"note,omitempty"`
+	CompanyName         *string             `json:"company_name,omitempty"`
+	CompanyType         *string             `json:"company_type,omitempty"`
+	DueDate             *int                `json:"due_date,omitempty"`
 	UserProcedureSteps  []UserProcedureStep `json:"user_procedure_steps,omitempty"`
 	Cost                *float64            `json:"cost,omitempty"`
 	FulfillmentStatus   *string             `json:"fulfillment_status,omitempty"`
@@ -96,10 +98,7 @@ type UserProcedure struct {
 }
 
 const (
-	PROCEDURE_STEP_TODO        = "todo"
-	PROCEDURE_STEP_IN_PROGRESS = "in_progress"
-	PROCEDURE_STEP_DONE        = "done"
-	PROCEDURE_STEP_BLOCKED     = "blocked"
+	PROCEDURE_STEP_TODO = "todo"
 
 	USER_PROCEDURE_CREATED    = "created"
 	USER_PROCEDURE_PENDING    = "pending"

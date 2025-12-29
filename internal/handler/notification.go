@@ -20,7 +20,7 @@ func GetNotifications(c *fiber.Ctx) error {
 	query.Parse(c)
 	notis, total, err := repo.GetNotifications(query, user)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't get list notification", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't get notifications", Error: err})
 	}
 	return c.JSON(fiber.Map{"status": true, "message": "Success", "notifications": notis, "total": total})
 }
@@ -28,16 +28,16 @@ func GetNotifications(c *fiber.Ctx) error {
 func GetNotificationDetail(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	var query repo.Query
 	query.Parse(c)
 	if query.IdInt == nil {
-		return c.JSON(fiber.Map{"status": false, "error": "id can't empty"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "id can't empty"})
 	}
 	noti, err := repo.GetNotificationDetails(*query.IdInt, user)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetNotificationDetails", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetNotificationDetails", Error: err})
 	}
 	if noti.ReadAt == nil {
 		now := time.Now()
@@ -50,33 +50,33 @@ func GetNotificationDetail(c *fiber.Ctx) error {
 func GetTotalNotificationType(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	var query repo.Query
 	query.Parse(c)
 	total, err := repo.GetTotalNotificationType(query, user)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTotalNotificationType", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTotalNotificationType", Error: err})
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "total": total})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &total})
 }
 
 func MarkReadAllNotification(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	total, err := repo.UpdateReadAtAllNotification(user)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't UpdateReadAtAllNotification", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't UpdateReadAtAllNotification", Error: err})
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "total": total})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &total})
 }
 
 func AdminGetNotifications(c *fiber.Ctx) error {
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	isRoleAdmin := true
 	if !admin.IsAdmin() {
@@ -88,41 +88,45 @@ func AdminGetNotifications(c *fiber.Ctx) error {
 	query.AdminID = &admin.ID
 	notifications, total, err := repo.AdminGetNotifications(c.Context(), query, isRoleAdmin)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't get list notification", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't get list notification", Error: err})
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "data": notifications, "total": total})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: notifications, Total: &total})
 }
 
 func AdminGetTotalNotificationType(c *fiber.Ctx) error {
-	if _, ok := c.Locals("admin").(model.Admin); !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 
 	var query repo.Query
 	query.Parse(c)
+	if admin.IsLawyer() {
+		query.AdminID = &admin.ID
+	}
 
 	total, err := repo.AdminGetTotalNotificationType(c.Context(), query)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetTotalNotificationType", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTotalNotificationType", Error: err})
 	}
 
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "total": total})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &total})
 }
 
 func AdminGetNotificationDetail(c *fiber.Ctx) error {
 	if _, ok := c.Locals("admin").(model.Admin); !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 
 	var query repo.Query
 	query.Parse(c)
 	if query.IdInt == nil {
-		return c.JSON(fiber.Map{"status": false, "error": "id can't empty"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "id can't empty"})
 	}
 
 	notification, err := repo.AdminGetNotificationDetails(c.Context(), *query.IdInt)
 	if err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "Can't GetNotificationDetails", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetNotificationDetails", Error: err})
 	}
 
 	if notification.ReadAt == nil {
@@ -132,13 +136,13 @@ func AdminGetNotificationDetail(c *fiber.Ctx) error {
 			slog.WarnContext(c.Context(), "failed to update notification", "error", err)
 		}
 	}
-	return c.JSON(fiber.Map{"status": true, "message": "Success", "data": notification})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: notification})
 }
 
 func AdminMarkReadAllNotification(c *fiber.Ctx) error {
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	isRoleAdmin := true
 	if !admin.IsAdmin() {
@@ -146,10 +150,10 @@ func AdminMarkReadAllNotification(c *fiber.Ctx) error {
 	}
 
 	if _, err := repo.AdminUpdateReadAtAllNotification(c.Context(), isRoleAdmin, admin.ID); err != nil {
-		return c.JSON(fiber.Map{"status": false, "message": "failed to update notification read time", "error": err.Error()})
+		return c.JSON(base.BaseResponse{Status: false, Message: "failed to update notification read time", Error: err})
 	}
 
-	return c.JSON(fiber.Map{"status": true, "message": "Success"})
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
 func UserUpsertNotificationPreference(c *fiber.Ctx) error {

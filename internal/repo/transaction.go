@@ -5,7 +5,6 @@ import (
 	"core/app"
 	"core/internal/domain_model/model"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -40,7 +39,20 @@ func GetTransactionByOrderID(order_id string, user model.User) (model.Transactio
 
 func GetTransaction(query Query, user model.User) ([]model.Transaction, int64, error) {
 	var pays []model.Transaction
-	tx := app.Database.DB.Model(&model.Transaction{}).Where("user_id = ?", user.ID)
+	tx := app.Database.DB.Model(&model.Transaction{}).Where("user_id = ?", user.ID).
+		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "proc_number")
+		})
+	if query.Search != "" {
+		tx = tx.Where(`
+			order_payment_id = ?
+			OR EXISTS (
+				SELECT 1
+				FROM user_procedures up
+				WHERE up.id = transactions.user_procedure_id
+				  AND up.proc_number ILIKE ?
+			)`, query.Search, "%"+query.Search+"%")
+	}
 	if query.Status != "" {
 		tx = tx.Where("status = ? ", query.Status)
 	}
@@ -54,9 +66,6 @@ func GetTransaction(query Query, user model.User) ([]model.Transaction, int64, e
 		} else {
 			tx = tx.Where("type = ? ", query.Type)
 		}
-	}
-	if query.Search != "" {
-		tx = tx.Where("order_payment_id = ?", query.Search)
 	}
 	if query.StartTime != nil && query.EndTime != nil {
 		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
@@ -100,7 +109,21 @@ func AdminGetTransaction(query Query) ([]model.Transaction, int64, error) {
 	var pays []model.Transaction
 	tx := app.Database.DB.Model(&model.Transaction{}).
 		Preload("User", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "name", "email", "status") }).
-		Preload("Admin", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "name", "email", "status", "role") })
+		Preload("Admin", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "name", "email", "status", "role") }).
+		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB { return db.Select("id", "proc_number") })
+	if query.Search != "" {
+		tx = tx.Where(`
+			order_payment_id = ?
+			OR EXISTS (
+				SELECT 1
+				FROM user_procedures up
+				WHERE up.id = transactions.user_procedure_id
+				  AND up.proc_number ILIKE ?
+			)`, query.Search, "%"+query.Search+"%")
+	}
+	if query.Status != "" {
+		tx = tx.Where("status = ? ", query.Status)
+	}
 	if query.Status != "" {
 		tx = tx.Where("status = ? ", query.Status)
 	}
@@ -117,9 +140,6 @@ func AdminGetTransaction(query Query) ([]model.Transaction, int64, error) {
 		} else {
 			tx = tx.Where("type = ? ", query.Type)
 		}
-	}
-	if query.Search != "" {
-		tx = tx.Where("order_payment_id = ?", query.Search)
 	}
 	if query.StartTime != nil && query.EndTime != nil {
 		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
@@ -149,50 +169,11 @@ func GetTransactionForExports(ctx context.Context, query Query) ([]model.Transac
 }
 
 func UpdateTransactionMetadata(ctx context.Context, id uuid.UUID, metadata datatypes.JSON) error {
-	tx := app.Database.Model(&model.Transaction{}).Where("id = ?", id).Update("metadata", metadata)
+	tx := app.Database.DB.Model(&model.Transaction{}).Where("id = ?", id).Update("metadata", metadata)
 
 	if err := tx.Error; err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func GetReportUserTopupAmount(ctx context.Context, startTime, endTime time.Time) (float64, error) {
-	var amount float64
-
-	tx := app.Database.DB.Model(&model.Transaction{}).
-		Where("type = ? AND status = ? AND created_at >= ? AND created_at <= ?", model.USER_DEPOSIT, model.COMPLETED, startTime, endTime).
-		Select("COALESCE(Sum(amount), 0) as amount").Pluck("amount", &amount)
-
-	if err := tx.Error; err != nil {
-		return 0, err
-	}
-
-	return amount, nil
-}
-
-func GetAnalyticFulfillmentAmountTransaction(ctx context.Context, query Query) ([]model.Transaction, error) {
-	var transactions []model.Transaction
-
-	tx := app.Database.DB.
-		Model(&model.Transaction{}).
-		Where("transactions.type IN ? ", []string{model.USER_DEPOSIT}).
-		Where("transactions.created_at >= ? AND transactions.created_at <= ?", query.StartTime, query.EndTime).
-		Where("transactions.status = ?", model.COMPLETED).
-		Joins("Store", app.Database.DB.Select("id", "name", "admin_id"))
-
-	if query.ID != nil {
-		tx = tx.Where(`"Store"."admin_id" = ?`, query.ID)
-	}
-
-	if query.UserID != nil {
-		tx = tx.Where("transactions.user_id = ?", query.UserID)
-	}
-
-	if err := tx.Find(&transactions).Error; err != nil {
-		return nil, err
-	}
-
-	return transactions, nil
 }

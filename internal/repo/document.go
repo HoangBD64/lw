@@ -42,21 +42,36 @@ func AdminGetDocuments(q Query) ([]model.Document, int64, error) {
 		items []model.Document
 		count int64
 	)
-	tx := app.Database.DB.Model(&model.Document{})
-	if q.Search != "" {
-		tx = tx.Where("name ILIKE ? OR file_type ILIKE ? OR user_procedure_id::text ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%", q.Search+"%")
-	}
+	tx := app.Database.DB.Model(&model.Document{}).
+		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "proc_number")
+		})
 	if q.AdminID != nil {
-		tx = tx.Where("admin_id = ?", q.AdminID)
+		sub := app.Database.DB.
+			Model(&model.UserProcedure{}).
+			Select("id").
+			Where("admin_id = ?", q.AdminID)
+		tx = tx.Where("user_procedure_id IN (?)", sub)
 	}
+
+	if q.Search != "" {
+		like := "%" + q.Search + "%"
+		tx = tx.Where(`
+        documents.name ILIKE ?
+        OR documents.file_type ILIKE ?
+        OR EXISTS (
+            SELECT 1
+            FROM user_procedures up
+            WHERE up.id = documents.user_procedure_id
+              AND up.proc_number ILIKE ?
+        )`, like, like, like)
+	}
+
 	if q.Type != "" {
 		tx = tx.Where("type = ?", q.Type)
 	}
 	if q.UserID != nil {
 		tx = tx.Where("user_id = ?", q.UserID)
-	}
-	if q.UserProcedureID != nil {
-		tx = tx.Where("user_procedure_id = ?", q.UserProcedureID)
 	}
 	if q.StartTime != nil && q.EndTime != nil {
 		tx = tx.Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime)
@@ -80,16 +95,26 @@ func UserGetDocuments(q Query) ([]model.Document, int64, error) {
 		Where("user_id = ?", q.UserID)
 
 	tx := app.Database.DB.Model(&model.Document{}).
+		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "proc_number")
+		}).
 		Where("user_procedure_id IN (?)", sub)
 
 	if q.Search != "" {
-		tx = tx.Where("name ILIKE ? OR file_type ILIKE ? OR user_procedure_id::text ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%", q.Search+"%")
+		like := "%" + q.Search + "%"
+		tx = tx.Where(`
+        documents.name ILIKE ?
+        OR documents.file_type ILIKE ?
+        OR EXISTS (
+            SELECT 1
+            FROM user_procedures up
+            WHERE up.id = documents.user_procedure_id
+              AND up.proc_number ILIKE ?
+        )`, like, like, like)
 	}
+
 	if q.Type != "" {
 		tx = tx.Where("type = ?", q.Type)
-	}
-	if q.UserProcedureID != nil {
-		tx = tx.Where("user_procedure_id = ?", *q.UserProcedureID)
 	}
 	if q.StartTime != nil && q.EndTime != nil {
 		tx = tx.Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime)

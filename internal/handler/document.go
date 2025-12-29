@@ -105,8 +105,15 @@ func AdminGetDocument(c *fiber.Ctx) error {
 }
 
 func AdminGetDocuments(c *fiber.Ctx) error {
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
 	var q repo.Query
 	q.Parse(c)
+	if admin.IsLawyer() {
+		q.AdminID = &admin.ID
+	}
 	items, total, err := repo.AdminGetDocuments(q)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get Documents Failed", Error: err})
