@@ -1,10 +1,12 @@
 package router
 
 import (
+	"context"
 	"core/app"
 	mainapp "core/app"
 	"core/internal/handler"
 	"core/internal/middleware"
+	"core/internal/scheduler"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,6 +23,7 @@ import (
 
 func Setup() {
 	app.InitLoggers()
+	scheduler.Setup(context.TODO())
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 200 * 1024 * 1024,
@@ -118,6 +121,7 @@ func setupRouter(fiber_app *fiber.App) {
 	api_user.Get("/procedures/:id/steps.json", middleware.Author(""), handler.UserGetProcedureDetail)
 	// api_user.Post("/procedures.json", middleware.Author(""), handler.UserCreateProcedure)
 	// procedure step
+	api_user.Get("/procedures-steps.json", middleware.Author(""), handler.UserGetUserProcedureSteps)
 	api_user.Patch("/procedures/steps/:id.json", middleware.Author(""), handler.UserUpdateUserProcedureStep)
 
 	// tickets

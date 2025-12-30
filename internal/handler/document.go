@@ -13,7 +13,6 @@ import (
 )
 
 func AdminCreateDocument(c *fiber.Ctx) error {
-	// only lawyer
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
@@ -46,7 +45,6 @@ func AdminCreateDocument(c *fiber.Ctx) error {
 }
 
 func AdminUpdateDocument(c *fiber.Ctx) error {
-	// only lawyer
 	admin, ok := c.Locals("admin").(model.Admin)
 	if !ok {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})

@@ -76,9 +76,10 @@ type TemplateUsage struct {
 
 func GetUserProcedureStatusCounts(ctx context.Context, q Query) (map[string]int64, error) {
 	result := map[string]int64{
-		model.USER_PROCEDURE_CREATED:   0,
-		model.USER_PROCEDURE_PENDING:   0,
-		model.USER_PROCEDURE_COMPLETED: 0,
+		model.USER_PROCEDURE_PENDING:    0,
+		model.USER_PROCEDURE_PROCESSING: 0,
+		model.USER_PROCEDURE_ERROR:      0,
+		model.USER_PROCEDURE_COMPLETED:  0,
 	}
 
 	type row struct {
@@ -99,10 +100,12 @@ func GetUserProcedureStatusCounts(ctx context.Context, q Query) (map[string]int6
 
 	for _, r := range rows {
 		switch r.Status {
-		case model.USER_PROCEDURE_CREATED:
-			result[model.USER_PROCEDURE_CREATED] = r.Count
-		case model.USER_PROCEDURE_PENDING:
-			result[model.USER_PROCEDURE_PENDING] = r.Count
+		case model.USER_PROCEDURE_STEP_PENDING:
+			result[model.USER_PROCEDURE_STEP_PENDING] = r.Count
+		case model.USER_PROCEDURE_PROCESSING:
+			result[model.USER_PROCEDURE_PROCESSING] = r.Count
+		case model.USER_PROCEDURE_ERROR:
+			result[model.USER_PROCEDURE_ERROR] = r.Count
 		case model.USER_PROCEDURE_COMPLETED:
 			result[model.USER_PROCEDURE_COMPLETED] = r.Count
 		}
@@ -110,15 +113,57 @@ func GetUserProcedureStatusCounts(ctx context.Context, q Query) (map[string]int6
 	return result, nil
 }
 
+func GetUserProcedureStepStatusCounts(ctx context.Context, q Query) (map[string]int64, error) {
+	result := map[string]int64{
+		model.USER_PROCEDURE_STEP_PENDING:    0,
+		model.USER_PROCEDURE_STEP_PROCESSING: 0,
+		model.USER_PROCEDURE_STEP_ERROR:      0,
+		model.USER_PROCEDURE_STEP_DONE:       0,
+	}
+
+	type row struct {
+		Status string
+		Count  int64
+	}
+	var rows []row
+
+	tx := app.Database.DB.Model(&model.UserProcedureStep{}).
+		Select("status, COUNT(*) as count").
+		Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime).
+		Group("status").
+		Scan(&rows)
+
+	if err := tx.Error; err != nil {
+		return nil, err
+	}
+
+	for _, r := range rows {
+		switch r.Status {
+		case model.USER_PROCEDURE_STEP_PENDING:
+			result[model.USER_PROCEDURE_STEP_PENDING] = r.Count
+		case model.USER_PROCEDURE_STEP_PROCESSING:
+			result[model.USER_PROCEDURE_STEP_PROCESSING] = r.Count
+		case model.USER_PROCEDURE_STEP_ERROR:
+			result[model.USER_PROCEDURE_STEP_ERROR] = r.Count
+		case model.USER_PROCEDURE_STEP_DONE:
+			result[model.USER_PROCEDURE_STEP_DONE] = r.Count
+		}
+	}
+	return result, nil
+}
+
 func GetTemplateUsages(ctx context.Context, q Query) ([]TemplateUsage, error) {
 	var out []TemplateUsage
-	tx := app.Database.DB.Table("user_procedures up").
-		Select("up.procedure_id as procedure_id, p.name as name, COUNT(*) as usage").
-		Joins("JOIN procedures p ON p.id = up.procedure_id").
-		Where("up.created_at >= ? AND up.created_at <= ?", q.StartTime, q.EndTime).
-		Group("up.procedure_id, p.name").
+	tx := app.Database.DB.Debug().
+		Model(&model.UserProcedure{}).
+		Select("user_procedures.procedure_id as procedure_id, p.name as name, COUNT(*) as usage").
+		Joins("JOIN procedures p ON p.id = user_procedures.procedure_id").
+		Where("p.deleted_at IS NULL").
+		Where("user_procedures.created_at >= ? AND user_procedures.created_at <= ?", q.StartTime, q.EndTime).
+		Group("user_procedures.procedure_id, p.name").
 		Order("usage DESC").
 		Scan(&out)
+
 	if err := tx.Error; err != nil {
 		return nil, err
 	}

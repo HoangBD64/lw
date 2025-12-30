@@ -21,6 +21,18 @@ func AdminGetProcedureByID(id int) (model.Procedure, error) {
 	return p, tx.Error
 }
 
+func AdminGetProceduresByIDs(ids []int) ([]model.Procedure, error) {
+	var procedures []model.Procedure
+	tx := app.Database.DB.Model(&model.Procedure{}).
+		Preload("ProcedureSteps", func(tx *gorm.DB) *gorm.DB {
+			return tx.Select("id", "procedure_id", "position", "status")
+		}).
+		Where("id IN ?", ids).
+		Find(&procedures)
+
+	return procedures, tx.Error
+}
+
 func AdminUpdateProcedure(p *model.Procedure) error {
 	return app.Database.DB.Model(&model.Procedure{}).Where("id = ?", p.ID).Updates(p).Error
 }
@@ -34,7 +46,10 @@ func AdminGetProcedures(q Query) ([]model.Procedure, int64, error) {
 		items []model.Procedure
 		count int64
 	)
-	tx := app.Database.DB.Model(&model.Procedure{})
+	tx := app.Database.DB.Model(&model.Procedure{}).
+		Preload("ProcedureSteps", func(tx *gorm.DB) *gorm.DB {
+			return tx.Select("id", "procedure_id", "position", "name").Order("position ASC")
+		})
 	if q.Search != "" {
 		tx = tx.Where("name ILIKE ?", "%"+q.Search+"%")
 	}
@@ -123,7 +138,10 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 		count int64
 	)
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
-		Omit("Procedure", "UserProcedureSteps", "Admin").
+		Omit("Procedure", "Admin").
+		Preload("UserProcedureSteps", func(tx *gorm.DB) *gorm.DB {
+			return tx.Select("id", "user_procedure_id", "position", "status").Order("position ASC")
+		}).
 		Preload("User", func(dbx *gorm.DB) *gorm.DB {
 			return dbx.Model(&model.User{}).Select("id", "name", "email", "phone", "role", "avatar", "status")
 		}).
@@ -338,6 +356,23 @@ func AdminGetAllStepStatusByUserProcedureID(userProcedureID int) ([]model.UserPr
 	return steps, tx.Error
 }
 
+func AdminBulkUpdateUserProcedureSteps(steps []model.UserProcedureStep) (int64, error) {
+	err := app.Database.DB.Transaction(func(tx *gorm.DB) error {
+		for _, step := range steps {
+			if err := tx.Model(&model.UserProcedureStep{}).
+				Where("id = ?", step.ID).
+				Updates(step).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(steps)), nil
+}
+
 func UserGetProcedureSteps(procedureID int) ([]model.ProcedureStep, error) {
 	var steps []model.ProcedureStep
 	tx := app.Database.DB.Model(&model.ProcedureStep{}).
@@ -353,6 +388,9 @@ func UserGetProcedures(q Query) ([]model.Procedure, int64, error) {
 		count int64
 	)
 	tx := app.Database.DB.Model(&model.Procedure{}).
+		Preload("ProcedureSteps", func(tx *gorm.DB) *gorm.DB {
+			return tx.Select("id", "procedure_id", "position", "name").Order("position ASC")
+		}).
 		Where("is_active = ?", true)
 	if q.Search != "" {
 		tx = tx.Where("name ILIKE ?", "%"+q.Search+"%")
@@ -467,4 +505,34 @@ func UpdateUserProcedureStep(ups *model.UserProcedureStep) error {
 	return app.Database.DB.Model(&model.UserProcedureStep{}).
 		Where("id = ?", ups.ID).
 		Updates(ups).Error
+}
+
+func UserGetUserProcedureSteps(q Query, userID uuid.UUID) ([]model.UserProcedureStep, int64, error) {
+	var (
+		steps []model.UserProcedureStep
+		count int64
+	)
+	tx := app.Database.DB.Model(&model.UserProcedureStep{}).
+		Preload("UserProcedure", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "proc_number", "template_name", "company_name") }).
+		Joins("JOIN user_procedures up ON up.id = user_procedure_steps.user_procedure_id").
+		Where("up.user_id = ?", userID)
+	if q.Status != "" {
+		tx = tx.Where("user_procedure_steps.status = ?", q.Status)
+	}
+	if q.Search != "" {
+		like := "%" + q.Search + "%"
+		tx = tx.Where("user_procedure_steps.name ILIKE ? OR up.proc_number ILIKE ? OR up.template_name ILIKE ? OR up.company_name ILIKE ?",
+			like, like, like, like)
+	}
+	if q.StartTime != nil && q.EndTime != nil {
+		tx = tx.Where("user_procedure_steps.created_at >= ? AND user_procedure_steps.created_at <= ?", q.StartTime, q.EndTime)
+	}
+	tx = tx.Count(&count)
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	tx = tx.Scopes(pagination(q.Page, q.Limit)).
+		Order("user_procedure_steps.created_at DESC").
+		Find(&steps)
+	return steps, count, tx.Error
 }

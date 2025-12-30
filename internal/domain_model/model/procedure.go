@@ -15,14 +15,14 @@ type Procedure struct {
 	Name        string     `json:"name"`
 	UpdateBy    string     `json:"update_by,omitempty"`
 	Description *string    `json:"description,omitempty"`
-	Cost        *float64   `json:"cost"`
+	Cost        *float64   `json:"cost,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
 	DeletedAt *gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 
-	IsActive       *bool           `json:"is_active" gorm:"default:true"`
-	DueDate        *int            `json:"due_date"`
+	IsActive       *bool           `json:"is_active,omitempty" gorm:"default:true"`
+	DueDate        *int            `json:"due_date,omitempty"`
 	ProcedureSteps []ProcedureStep `json:"procedure_steps,omitempty"`
 }
 
@@ -30,14 +30,14 @@ type ProcedureStep struct {
 	ID          int            `gorm:"primaryKey,autoIncrement" json:"id"`
 	ProcedureID int            `json:"procedure_id"`
 	Name        string         `json:"name"`
-	Status      string         `json:"status" gorm:"index"`
-	DueDate     *int           `json:"due_date"`
+	Status      string         `json:"status,omitempty" gorm:"index"`
+	DueDate     *int           `json:"due_date,omitempty"`
 	AdminID     *uuid.UUID     `json:"admin_id,omitempty"`
 	Admin       *Admin         `json:"admin,omitempty"`
-	Notes       string         `json:"notes"`
-	Position    int            `json:"position"`
-	IsActive    *bool          `json:"is_active" gorm:"default:true"`
-	Data        datatypes.JSON `json:"data"`
+	Notes       string         `json:"notes,omitempty"`
+	Position    int            `json:"position,omitempty"`
+	IsActive    *bool          `json:"is_active,omitempty" gorm:"default:true"`
+	Data        datatypes.JSON `json:"data,omitempty"`
 	Description *string        `json:"description,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
@@ -91,6 +91,7 @@ type UserProcedure struct {
 	FulfillmentStatus   *string             `json:"fulfillment_status,omitempty"`
 	Title               *string             `json:"title,omitempty"`
 	FulfillmentCostPaid *time.Time          `json:"fulfillment_cost_paid,omitempty"`
+	DeadlineAt          *time.Time          `json:"deadline_at,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -105,12 +106,13 @@ const (
 	USER_PROCEDURE_PROCESSING = "processing"
 	USER_PROCEDURE_COMPLETED  = "completed"
 	USER_PROCEDURE_ERROR      = "error"
-	USER_PROCEDURE_CANCEL     = "cancel"
+	USER_PROCEDURE_CANCELLED  = "cancelled"
 
 	USER_PROCEDURE_STEP_PENDING    = "pending"
 	USER_PROCEDURE_STEP_PROCESSING = "processing"
 	USER_PROCEDURE_STEP_DONE       = "done"
 	USER_PROCEDURE_STEP_ERROR      = "error"
+	USER_PROCEDURE_STEP_CANCELLED  = "cancelled"
 
 	FULFILLMENT_PAID = "paid"
 )

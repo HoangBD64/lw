@@ -18,6 +18,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.97
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/plutov/paypal v2.0.5+incompatible
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/samber/lo v1.51.0
 	github.com/samber/slog-multi v1.4.1
 	github.com/shopspring/decimal v1.4.0

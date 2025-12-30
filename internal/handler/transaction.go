@@ -338,6 +338,13 @@ func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body Fin
 		slog.Debug("Error get ProcedureTemplateByID", "err", err)
 		return model.UserProcedure{}, err
 	}
+	// add dealineat from duedate in procedure template
+	var deadlineAt *time.Time
+	if procedure_template.DueDate != nil {
+		now := time.Now()
+		deadline := now.AddDate(0, 0, *procedure_template.DueDate)
+		deadlineAt = &deadline
+	}
 
 	status := model.USER_PROCEDURE_PENDING
 	title := "Untitled"
@@ -354,6 +361,7 @@ func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body Fin
 		State:        &body.State,
 		CompanyName:  &body.CompanyName,
 		CompanyType:  &body.CompanyType,
+		DeadlineAt:   deadlineAt,
 	}
 	up, err := repo.CreateUserProcedure(new_user_procedure)
 	if err != nil {

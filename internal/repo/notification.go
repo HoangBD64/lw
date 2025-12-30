@@ -26,7 +26,7 @@ func GetNotifications(query Query, user model.User) ([]model.Notification, int64
 	var notis []model.Notification
 	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id = ?", user.ID)
 	if query.Search != "" {
-		tx = tx.Where("name ILIKE ? ", "%"+query.Search+"%")
+		tx = tx.Where("title ILIKE ? ", "%"+query.Search+"%")
 	}
 	if query.Type != "" {
 		tx = tx.Where("type = ?", query.Type)
@@ -77,31 +77,67 @@ func UpdateReadAtAllNotification(user model.User) (int64, error) {
 	return tx.RowsAffected, tx.Error
 }
 
+func GetNotificationPreferenceByUserID(userID uuid.UUID) (model.NotificationPreference, error) {
+	var pref model.NotificationPreference
+	tx := app.Database.DB.Model(&model.NotificationPreference{}).Where("user_id = ?", userID).First(&pref)
+	return pref, tx.Error
+}
+
+func UpsertNotificationPreferenceByUserID(userID uuid.UUID, emailEnabled bool) (model.NotificationPreference, error) {
+	var out model.NotificationPreference
+	err := app.Database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.NotificationPreference{}).Where("user_id = ?", userID).First(&out).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				out = model.NotificationPreference{UserID: &userID, EmailEnabled: emailEnabled}
+				if err := tx.Create(&out).Error; err != nil {
+					return err
+				}
+				return nil
+			}
+			return err
+		}
+		out.EmailEnabled = emailEnabled
+		if err := tx.Model(&out).Select("email_enabled").Updates(&out).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	return out, err
+}
+
 func AdminGetNotifications(ctx context.Context, query Query, isRoleAdmin bool) ([]model.Notification, int64, error) {
 	var out []model.Notification
 	var count int64
 
 	tx := app.Database.DB.Model(&model.Notification{})
+
 	if isRoleAdmin {
-		tx = tx.Where("user_id IS NULL AND admin_id IS NULL")
+		tx = tx.Where("notifications.user_id IS NULL AND notifications.admin_id IS NULL")
 	} else {
-		tx = tx.Where("user_id IS NULL AND admin_id = ?", query.AdminID)
+		tx = tx.Where("notifications.user_id IS NULL AND notifications.admin_id = ?", query.AdminID)
 	}
 
 	if query.Search != "" {
-		tx = tx.Where("name ILIKE ? ", "%"+query.Search+"%")
+		tx = tx.Joins(`
+			LEFT JOIN user_procedures up
+			  ON (notifications.metadata->>'user_procedure_id')::int = up.id
+		`)
+		tx = tx.Where(
+			"notifications.title ILIKE ? OR up.proc_number ILIKE ?",
+			"%"+query.Search+"%",
+			"%"+query.Search+"%",
+		)
 	}
+
 	if query.Type != "" {
-		tx = tx.Where("type = ?", query.Type)
+		tx = tx.Where("notifications.type = ?", query.Type)
 	}
 
 	if err := tx.Count(&count).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if err := tx.Offset(query.Limit * (query.Page - 1)).Limit(query.Limit).Order("created_at DESC").Find(&out).Error; err != nil {
-		return nil, 0, err
-	}
+	tx = tx.Scopes(pagination(query.Page, query.Limit)).Order("created_at DESC").Find(&out)
 
 	return out, count, nil
 }
@@ -168,32 +204,4 @@ func AdminUpdateNotification(ctx context.Context, noti model.Notification) (mode
 	}
 
 	return noti, nil
-}
-
-func GetNotificationPreferenceByUserID(userID uuid.UUID) (model.NotificationPreference, error) {
-	var pref model.NotificationPreference
-	tx := app.Database.DB.Model(&model.NotificationPreference{}).Where("user_id = ?", userID).First(&pref)
-	return pref, tx.Error
-}
-
-func UpsertNotificationPreferenceByUserID(userID uuid.UUID, emailEnabled bool) (model.NotificationPreference, error) {
-	var out model.NotificationPreference
-	err := app.Database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.NotificationPreference{}).Where("user_id = ?", userID).First(&out).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				out = model.NotificationPreference{UserID: &userID, EmailEnabled: emailEnabled}
-				if err := tx.Create(&out).Error; err != nil {
-					return err
-				}
-				return nil
-			}
-			return err
-		}
-		out.EmailEnabled = emailEnabled
-		if err := tx.Model(&out).Select("email_enabled").Updates(&out).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-	return out, err
 }

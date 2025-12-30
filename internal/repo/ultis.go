@@ -25,6 +25,7 @@ type Query struct {
 	Email        string     `query:"email" json:"email,omitempty"`
 	Search       string     `query:"search" json:"search,omitempty"`
 	CompanyName  string     `query:"company_name" json:"company_name,omitempty"`
+	TemplateName string     `query:"template_name" json:"template_name,omitempty"`
 	IsHaveTicket *bool      `query:"is_have_ticket" json:"is_have_ticket,omitempty"`
 	IsAssigned   *bool      `query:"is_assigned" json:"is_assigned,omitempty"`
 	//

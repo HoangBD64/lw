@@ -26,3 +26,11 @@ func RenderMailTemplate(tmplName string, data any) (string, error) {
 	}
 	return buf.String(), nil
 }
+
+const (
+	MailTemplateProcedureError     = "mail_procedure_error.html"
+	MailTemplateDeadlineReminder   = "mail_deadline_reminder.html"
+	MailTemplateProcedureCancelled = "mail_procedure_cancelled.html"
+	MailTemplateInvoiceCompleted   = "mail_invoice_completed.html"
+	MailTemplateProcedureCompleted = "mail_procedure_completed.html"
+)

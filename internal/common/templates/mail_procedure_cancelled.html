@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Procedure Cancelled</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: #222;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .section {
+            margin-top: 12px;
+        }
+
+        .muted {
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">Hello {{.UserName}},</div>
+
+        <p>
+            We would like to inform you that your procedure has been <strong>cancelled</strong>.
+        </p>
+
+        <div class="section">
+            <strong>Procedure Information</strong>
+            <ul>
+                <li>Procedure name: <strong>{{.ProcedureName}}</strong></li>
+                {{if .CompanyName}}
+                <li>Company name: <strong>{{.CompanyName}}</strong></li>
+                {{end}}
+                {{if .Status}}
+                <li>Status: <strong>{{.Status}}</strong></li>
+                {{end}}
+                <li>Procedure number: <strong>{{.UserProcedureNumber}}</strong></li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <p>
+                This procedure is no longer in progress. Any related processing has been stopped accordingly.
+            </p>
+            <p>
+                If you believe this cancellation was made in error or if you need further clarification, please feel free
+                to contact us for assistance.
+            </p>
+
+            {{if .URL}}
+            <p>
+                <a href="{{.URL}}"
+                    style="display:inline-block;background:#0b5cff;color:#fff;text-decoration:none;padding:10px 14px;border-radius:6px;">
+                    View Procedure Details
+                </a>
+            </p>
+            {{end}}
+
+            <p class="muted">
+                Thank you for your understanding and for using our service.
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

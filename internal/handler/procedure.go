@@ -448,6 +448,22 @@ func AdminUpdateUserProcedure(c *fiber.Ctx) error {
 	}
 	up.Status = &input.Status
 	up.Note = &input.Note
+	if up.Status != nil && *up.Status == model.USER_PROCEDURE_CANCELLED {
+		steps, err := repo.AdminGetAllStepStatusByUserProcedureID(up.ID)
+		if err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure steps failed", Error: err})
+		}
+		for i := range steps {
+			if steps[i].Status != model.USER_PROCEDURE_STEP_DONE && steps[i].Status != model.USER_PROCEDURE_STEP_CANCELLED {
+				steps[i].Status = model.USER_PROCEDURE_STEP_CANCELLED
+			}
+		}
+		if _, err := repo.AdminBulkUpdateUserProcedureSteps(steps); err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure steps failed", Error: err})
+		}
+
+		go SendMailToUser([]int{up.ID}, model.NOTI_PROCEDURE_CANCELLED)
+	}
 	if err := repo.AdminUpdateUserProcedure(&up); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure failed", Error: err})
 	}
@@ -529,17 +545,28 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 			continue
 		}
 
-		var subject, tmpl string
+		var subject, tmpl, contentNoti string
 		switch mailType {
 		case model.NOTI_PROCEDURE_ERROR:
 			subject = fmt.Sprintf("Procedure Issue Detected: %s", up.TemplateName)
-			tmpl = "mail_procedure_error.html"
+			tmpl = templates.MailTemplateProcedureError
+			contentNoti = fmt.Sprintf("Procedure <strong>%s</strong> has an error. Please review the changes.", lo.FromPtr(up.ProcNumber))
+
 		case model.NOTI_PROCEDURE_COMPLETED:
 			subject = fmt.Sprintf("Procedure Completed: %s", up.TemplateName)
-			tmpl = "mail_procedure_completed.html"
+			tmpl = templates.MailTemplateProcedureCompleted
+			contentNoti = fmt.Sprintf("Procedure <strong>%s</strong> has been completed.", lo.FromPtr(up.ProcNumber))
+
 		case model.NOTI_INVOICE_COMPLETED:
 			subject = fmt.Sprintf("Payment Confirmed: %s", up.TemplateName)
-			tmpl = "mail_invoice_completed.html"
+			tmpl = templates.MailTemplateInvoiceCompleted
+			contentNoti = fmt.Sprintf("Payment for Procedure <strong>%s</strong> has been confirmed.", lo.FromPtr(up.ProcNumber))
+
+		case model.NOTI_PROCEDURE_CANCELLED:
+			subject = fmt.Sprintf("Procedure Cancelled: %s", up.TemplateName)
+			tmpl = templates.MailTemplateProcedureCancelled
+			contentNoti = fmt.Sprintf("Your procedure <strong>%s</strong> has been cancelled.", lo.FromPtr(up.ProcNumber))
+
 		default:
 			slog.Error("Unknown mail type", "mail_type", mailType)
 			continue
@@ -578,7 +605,7 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 
 		Metadata := model.NotiMetadata{
 			UserProcedureID: lo.ToPtr(up.ID),
-			Content:         lo.ToPtr(fmt.Sprintf("%s - %s - %s", up.TemplateName, mailType, *up.ProcNumber)),
+			Content:         lo.ToPtr(contentNoti),
 		}
 		metadataJSON, _ := utils.ToJSON(Metadata)
 		err = service.CreateNotifyInApp(&model.Notification{
@@ -708,23 +735,6 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 		userProcedure.Status = &status
 		go repo.AdminUpdateUserProcedure(&userProcedure)
 		go SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_PROCEDURE_ERROR)
-		procNum := lo.FromPtr(userProcedure.ProcNumber)
-		if procNum == "" {
-			procNum = fmt.Sprintf("%d", userProcedure.ID)
-		}
-
-		Metadata := model.NotiMetadata{
-			UserProcedureID: lo.ToPtr(ups.UserProcedureID),
-			Content:         lo.ToPtr(fmt.Sprintf("Procedure step <strong>%s</strong> of procedure <strong>%s</strong> has an error. Please review the changes.", ups.Name, procNum)),
-		}
-		metadataJSON, _ := utils.ToJSON(Metadata)
-		notification := model.Notification{
-			UserID:   userProcedure.UserID,
-			Title:    "Procedure step error",
-			Type:     model.NOTIFICATION_PROCEDURE,
-			Metadata: metadataJSON,
-		}
-		go repo.CreateNotification(c.Context(), notification)
 	}
 	ups.Status = input.Status
 	ups.UserCompleted = input.UserCompleted
@@ -762,19 +772,6 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 				status := model.USER_PROCEDURE_COMPLETED
 				up.Status = &status
 				go SendMailToUser([]int{userProcedureID}, model.NOTI_PROCEDURE_COMPLETED)
-
-				Metadata := model.NotiMetadata{
-					UserProcedureID: lo.ToPtr(up.ID),
-					Content:         lo.ToPtr(fmt.Sprintf("Procedure <strong>%s</strong> has been completed successfully.", lo.FromPtr(up.ProcNumber))),
-				}
-				metadataJSON, _ := utils.ToJSON(Metadata)
-				notification := model.Notification{
-					UserID:   up.UserID,
-					Title:    "Procedure completed",
-					Type:     model.NOTIFICATION_PROCEDURE,
-					Metadata: metadataJSON,
-				}
-				go repo.CreateNotification(c.Context(), notification)
 			} else if anyError {
 				status := model.USER_PROCEDURE_ERROR
 				up.Status = &status
@@ -885,70 +882,6 @@ func UserListUserProcedures(c *fiber.Ctx) error {
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: items, Total: &total})
 }
 
-// NOTE: TEMPORARY
-// func UserCreateProcedure(c *fiber.Ctx) error {
-// 	user, ok := c.Locals("user").(model.User)
-// 	if !ok {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
-// 	}
-// 	var input domain.UserCreateProcedureRequest
-// 	if err := c.BodyParser(&input); err != nil {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
-// 	}
-// 	if input.ProcedureID <= 0 {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "procedure_id is required"})
-// 	}
-// 	procedure, err := repo.GetProcedureByID(input.ProcedureID)
-// 	if err != nil {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "Get procedure failed", Error: err})
-// 	}
-// 	totalCost := lo.FromPtr(procedure.Cost)
-// 	isHaveTicket := false
-// 	status := model.USER_PROCEDURE_CREATED
-// 	userProcedure := model.UserProcedure{
-// 		UserID:       &user.ID,
-// 		ProcedureID:  input.ProcedureID,
-// 		Title:        &input.Title,
-// 		Status:       &status,
-// 		IsHaveTicket: &isHaveTicket,
-// 		TemplateName: procedure.Name,
-// 		DueDate:      procedure.DueDate,
-// 		Cost:         &totalCost,
-// 	}
-// 	baseSteps, err := repo.UserGetProcedureSteps(input.ProcedureID)
-// 	if err != nil {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "Get procedure steps failed", Error: err})
-// 	}
-// 	userProcedure, err = repo.CreateUserProcedure(userProcedure)
-// 	if err != nil {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "Create user procedure failed", Error: err})
-// 	}
-// 	ups := MappingProcedureStepsToUserProcedureSteps(baseSteps, userProcedure.ID)
-// 	for i := range ups {
-// 		ups[i].UserProcedureID = userProcedure.ID
-// 	}
-// 	if err := repo.UserCreateBulkProcedureStep(&ups); err != nil {
-// 		return c.JSON(base.BaseResponse{Status: false, Message: "Create user procedure steps failed", Error: err})
-// 	}
-
-// 	if len(input.ProcedureSteps) > 0 {
-// 		idxByProcStep := make(map[int]int, len(ups))
-// 		for i := range ups {
-// 			idxByProcStep[ups[i].ProcedureStepID] = i
-// 		}
-// 		for _, ov := range input.ProcedureSteps {
-// 			if i, ok := idxByProcStep[ov.ProcedureStepID]; ok {
-// 				ups[i].Data = ov.Data
-// 				if err := repo.UpdateUserProcedureStep(&ups[i]); err != nil {
-// 					return c.JSON(base.BaseResponse{Status: false, Message: "Apply step override failed", Error: err})
-// 				}
-// 			}
-// 		}
-// 	}
-// 	userProcedure.UserProcedureSteps = ups
-// 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: userProcedure})
-// }
-
 func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 	_, ok := c.Locals("user").(model.User)
 	if !ok {
@@ -1029,4 +962,18 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: ups})
+}
+
+func UserGetUserProcedureSteps(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(model.User)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again", Error: nil})
+	}
+	var query repo.Query
+	query.Parse(c)
+	ups, total, err := repo.UserGetUserProcedureSteps(query, user.ID)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure steps failed", Error: err})
+	}
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: ups, Total: &total})
 }

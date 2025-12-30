@@ -16,6 +16,7 @@ const ( // type
 	STORAGE_CREDENTIAL = "storage_credential"
 	PAYMENT_INFO       = "payment"
 	MAIL_SYSTEM        = "mail_system"
+	JOB_SCHEDULER      = "job_scheduler"
 )
 
 const ( //payment type
@@ -60,4 +61,8 @@ type SystemSettingMail struct {
 	MAIL_HEADER  string `json:"mail_header"`
 	MAIL_PORT    string `json:"mail_port"`
 	MAIL_HOST    string `json:"mail_host"`
+}
+
+type SchedulerConfig struct {
+	DailyTime string `json:"daily_time"` // ex: { "daily_time": "09:00" }
 }

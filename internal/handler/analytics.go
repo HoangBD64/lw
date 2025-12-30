@@ -25,6 +25,11 @@ func AdminGetSystemStats(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "failed to get status counts", Error: err})
 	}
 
+	stepStatusCounts, err := repo.GetUserProcedureStepStatusCounts(c.Context(), q)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "failed to get step status counts", Error: err})
+	}
+
 	templateUsages, err := repo.GetTemplateUsages(c.Context(), q)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "failed to get template usages", Error: err})
@@ -35,10 +40,16 @@ func AdminGetSystemStats(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "failed to get new users", Error: err})
 	}
 
+	upCounts := 0
+	for _, count := range statusCounts {
+		upCounts += int(count)
+	}
 	data := fiber.Map{
-		"user_procedure_status": statusCounts,
-		"template_usage":        templateUsages,
-		"new_users":             newUsers,
+		"user_procedure_status":      statusCounts,
+		"user_procedure_count":       upCounts,
+		"user_procedure_step_status": stepStatusCounts,
+		"template_usage":             templateUsages,
+		"new_users":                  newUsers,
 	}
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: data})
