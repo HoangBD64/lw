@@ -25,6 +25,8 @@ services:
       S3_ENDPOINT_CDN: nvcdn.shopasic.com
       S3_BUCKET: "" 
       S3_SSL: true
+      # domain website
+      WEB_BASE_URL: https://legalswift-api.shopasic.com
     volumes:
       - ./token_jwt_key.pem:/app/token_jwt_key.pem
     ports:

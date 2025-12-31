@@ -4,6 +4,7 @@ import (
 	"core/app"
 	"core/internal/domain_model/model"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -535,4 +536,31 @@ func UserGetUserProcedureSteps(q Query, userID uuid.UUID) ([]model.UserProcedure
 		Order("user_procedure_steps.created_at DESC").
 		Find(&steps)
 	return steps, count, tx.Error
+}
+
+// for cron job
+func GetAllUserProceduresDueInDays() ([]model.UserProcedure, error) {
+	now := time.Now()
+	target := now.Add(48 * time.Hour)
+	startOfDay := time.Date(target.Year(), target.Month(), target.Day(), 0, 0, 0, 0, target.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour).Add(-time.Nanosecond)
+
+	var ups []model.UserProcedure
+	tx := app.Database.DB.Model(&model.UserProcedure{}).
+		Where("is_send_noti = ?", false).
+		Where("status NOT IN ?", []string{model.USER_PROCEDURE_COMPLETED}).
+		Where("deadline_at >= ? AND deadline_at <= ?", startOfDay, endOfDay).
+		Find(&ups)
+	if err := tx.Error; err != nil {
+		return nil, err
+	}
+	return ups, nil
+}
+
+func MarkReminderSent(userProcedureID []int) error {
+	return app.Database.DB.Transaction(func(tx *gorm.DB) error {
+		return tx.Model(&model.UserProcedure{}).
+			Where("id IN ?", userProcedureID).
+			Updates(map[string]any{"is_send_noti": true}).Error
+	})
 }

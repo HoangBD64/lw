@@ -34,3 +34,13 @@ const (
 	MailTemplateInvoiceCompleted   = "mail_invoice_completed.html"
 	MailTemplateProcedureCompleted = "mail_procedure_completed.html"
 )
+
+type DeadlineReminderData struct {
+	UserName            string
+	ProcedureName       string
+	CompanyName         *string
+	DueDate             string
+	DaysLeft            int
+	UserProcedureNumber string
+	URL                 string
+}

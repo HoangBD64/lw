@@ -86,6 +86,7 @@ type UserProcedure struct {
 	CompanyName         *string             `json:"company_name,omitempty"`
 	CompanyType         *string             `json:"company_type,omitempty"`
 	DueDate             *int                `json:"due_date,omitempty"`
+	// PaymentAccount      *string             `json:"payment_account,omitempty"`
 	UserProcedureSteps  []UserProcedureStep `json:"user_procedure_steps,omitempty"`
 	Cost                *float64            `json:"cost,omitempty"`
 	FulfillmentStatus   *string             `json:"fulfillment_status,omitempty"`

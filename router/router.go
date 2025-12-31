@@ -1,12 +1,10 @@
 package router
 
 import (
-	"context"
 	"core/app"
 	mainapp "core/app"
 	"core/internal/handler"
 	"core/internal/middleware"
-	"core/internal/scheduler"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,7 +21,7 @@ import (
 
 func Setup() {
 	app.InitLoggers()
-	scheduler.Setup(context.TODO())
+	// scheduler.Setup(context.TODO())
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 200 * 1024 * 1024,

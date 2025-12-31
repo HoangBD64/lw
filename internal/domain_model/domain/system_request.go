@@ -14,4 +14,5 @@ type AdminUpdateSettingRequest struct {
 
 type TestSendMailRequest struct {
 	Address string `json:"address" validate:"required,email"`
+	Option  string `json:"option"`
 }

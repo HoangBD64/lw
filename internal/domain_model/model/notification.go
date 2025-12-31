@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -19,14 +18,13 @@ type NotificationPreference struct {
 }
 
 type Notification struct {
-	ID      int        `gorm:"primaryKey,autoIncrement" json:"id"`
-	UserID  *uuid.UUID `json:"user_id"`
-	AdminID *uuid.UUID `json:"admin_id"`
-	Title   string     `json:"title"`
-	// Content  string         `json:"content" gorm:"type:text"`
-	Metadata datatypes.JSON `json:"metadata" gorm:"serializer:json"`
-	Type     string         `json:"type"  gorm:"index"`
-	ReadAt   *time.Time     `json:"read_at"`
+	ID       int          `gorm:"primaryKey,autoIncrement" json:"id"`
+	UserID   *uuid.UUID   `json:"user_id"`
+	AdminID  *uuid.UUID   `json:"admin_id"`
+	Title    string       `json:"title"`
+	Metadata NotiMetadata `json:"metadata" gorm:"type:jsonb;serializer:json"`
+	Type     string       `json:"type"  gorm:"index"`
+	ReadAt   *time.Time   `json:"read_at"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`

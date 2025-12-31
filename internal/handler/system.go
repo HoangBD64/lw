@@ -5,6 +5,7 @@ import (
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
+	"core/internal/scheduler"
 	"core/pkg/send_mail"
 	"core/utils/base"
 	"encoding/json"
@@ -218,6 +219,18 @@ func AdminUpdateSetting(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "failed to update data", Error: err})
 	}
 
+	// If scheduler config was updated, reschedule cron according to the new time
+	if setting_found.Type == model.JOB_SCHEDULER {
+		var newConf model.SchedulerConfig
+		if err := json.Unmarshal(input.Metadata, &newConf); err != nil {
+			slog.Error("scheduler: failed to parse updated scheduler config", "error", err)
+		} else {
+			if err := scheduler.RescheduleDaily(context.TODO(), newConf.DailyTime); err != nil {
+				slog.Error("scheduler: reschedule failed", "error", err)
+			}
+		}
+	}
+
 	return c.JSON(base.BaseResponse{Status: true, Message: "ok"})
 }
 
@@ -268,6 +281,9 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 
 func checkCurrentSystemAdmin(c *fiber.Ctx) (model.SystemAdmin, error) {
 	if admin, ok := c.Locals("admin").(model.Admin); ok {
+		if admin.IsLawyer() {
+			return nil, errors.New("unauthorized access")
+		}
 		return admin, nil
 	}
 	return nil, errors.New("unauthorized access")

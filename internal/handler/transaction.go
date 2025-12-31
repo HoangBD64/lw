@@ -219,6 +219,7 @@ type FinishBody struct {
 	State       string `json:"state"`
 	CompanyName string `json:"company_name"`
 	CompanyType string `json:"company_type"`
+	// PaymentAccount string `json:"payment_account"`
 }
 
 func FinishPayment(c *fiber.Ctx) error {

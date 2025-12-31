@@ -6,75 +6,120 @@
     <title>Procedure Cancelled</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            color: #222;
+            margin: 0;
+            padding: 0;
+            background: #f4f6fb;
+            background-image: linear-gradient(180deg, #f7f9fc 0%, #eef2f9 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+            color: #1f2937;
+            line-height: 1.6;
         }
 
         .container {
-            max-width: 640px;
+            max-width: 680px;
             margin: 0 auto;
-            padding: 16px;
+            padding: 24px;
+        }
+
+        .brand-bar {
+            height: 6px;
+            background: linear-gradient(90deg, #ff8a00 0%, #ff5f1f 100%);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+            margin: 0 auto 16px;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 14px;
+            box-shadow: 0 10px 28px rgba(31, 41, 55, 0.10);
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
         }
 
         .header {
+            padding: 20px 24px;
             font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 8px;
+            font-weight: 700;
+            border-bottom: 1px solid #eef2f7;
+            color: #111827;
+        }
+
+        .content {
+            padding: 20px 24px;
         }
 
         .section {
-            margin-top: 12px;
+            margin-top: 16px;
+        }
+
+        .section-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #111827;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 8px 0 0;
+        }
+
+        ul li {
+            margin: 6px 0;
         }
 
         .muted {
-            color: #666;
+            color: #6b7280;
+        }
+
+        .btn {
+            display: inline-block;
+            background: #0b5cff;
+            color: #fff;
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .footer {
+            padding: 0 24px 20px;
+            color: #6b7280;
+            font-size: 12px;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <div class="header">Hello {{.UserName}},</div>
+        <div class="brand-bar"></div>
+        <div class="card">
+            <div class="header">Hello {{.UserName}},</div>
+            <div class="content">
+                <p>We would like to inform you that your procedure has been <strong>cancelled</strong>.</p>
 
-        <p>
-            We would like to inform you that your procedure has been <strong>cancelled</strong>.
-        </p>
+                <div class="section">
+                    <div class="section-title">Procedure Information</div>
+                    <ul>
+                        <li>Procedure name: <strong>{{.ProcedureName}}</strong></li>
+                        {{if .CompanyName}}<li>Company name: <strong>{{.CompanyName}}</strong></li>{{end}}
+                        {{if .Status}}<li>Status: <strong>{{.Status}}</strong></li>{{end}}
+                        <li>Procedure number: <strong>{{.UserProcedureNumber}}</strong></li>
+                    </ul>
+                </div>
 
-        <div class="section">
-            <strong>Procedure Information</strong>
-            <ul>
-                <li>Procedure name: <strong>{{.ProcedureName}}</strong></li>
-                {{if .CompanyName}}
-                <li>Company name: <strong>{{.CompanyName}}</strong></li>
-                {{end}}
-                {{if .Status}}
-                <li>Status: <strong>{{.Status}}</strong></li>
-                {{end}}
-                <li>Procedure number: <strong>{{.UserProcedureNumber}}</strong></li>
-            </ul>
-        </div>
-
-        <div class="section">
-            <p>
-                This procedure is no longer in progress. Any related processing has been stopped accordingly.
-            </p>
-            <p>
-                If you believe this cancellation was made in error or if you need further clarification, please feel free
-                to contact us for assistance.
-            </p>
-
-            {{if .URL}}
-            <p>
-                <a href="{{.URL}}"
-                    style="display:inline-block;background:#0b5cff;color:#fff;text-decoration:none;padding:10px 14px;border-radius:6px;">
-                    View Procedure Details
-                </a>
-            </p>
-            {{end}}
-
-            <p class="muted">
-                Thank you for your understanding and for using our service.
-            </p>
+                <div class="section">
+                    <p>This procedure is no longer in progress. Any related processing has been stopped accordingly.</p>
+                    <p>If you believe this cancellation was made in error or if you need further clarification, please
+                        feel free to contact us for assistance.</p>
+                    {{if .URL}}
+                    <p><a href="{{.URL}}" class="btn">View Procedure Details</a></p>
+                    {{end}}
+                    <p class="muted">Thank you for your understanding and for using our service.</p>
+                </div>
+            </div>
+            <!-- <div class="footer">If you have questions, just reply to this email.</div> -->
         </div>
     </div>
 </body>

@@ -15,6 +15,8 @@ import (
 )
 
 var cronEngine *cron.Cron
+var deadlineJob *jobs.DeadlineReminderJob
+var deadlineEntryID cron.EntryID
 
 func Setup(ctx context.Context) {
 	loc := time.Local
@@ -27,27 +29,30 @@ func Setup(ctx context.Context) {
 			_ = json.Unmarshal(setting.Metadata, &conf)
 		}
 	} else {
-		// Not found or error, keep default
 		slog.Debug("scheduler: using default schedule", "error", err)
 	}
 
 	// Build cron spec from DailyTime (HH:MM)
 	spec := dailySpecFromTime(conf.DailyTime)
 
-	// Register jobs
-	deadlineJob := jobs.NewDeadlineReminderJob(notification.NewService(notification.SystemEmailSender{}))
-	if _, err := cronEngine.AddFunc(spec, func() {
+	// Register jobs 
+	deadlineJob = jobs.NewDeadlineReminderJob(notification.NewService(notification.SystemEmailSender{}))
+	entryID, err := cronEngine.AddFunc(spec, func() {
 		jobCtx := context.Background()
+		slog.Info("deadline job: TRIGGERED", "at", time.Now(), "loc", time.Now().Location().String())
 		if err := deadlineJob.Run(jobCtx); err != nil {
 			slog.Error("scheduler: deadline reminder job failed", "error", err)
 		}
-	}); err != nil {
+	})
+	if err != nil {
 		slog.Error("scheduler: failed to add deadline job", "error", err)
 		return
 	}
+	deadlineEntryID = entryID
 
 	cronEngine.Start()
-	slog.Info("scheduler: started", "spec", spec)
+	entry := cronEngine.Entry(entryID)
+	slog.Info("scheduler: started", "spec", spec, "next_run", entry.Next, "prev_run", entry.Prev)
 }
 
 func Stop() {
@@ -74,4 +79,38 @@ func dailySpecFromTime(hhmm string) string {
 		m = 0
 	}
 	return fmt.Sprintf("%d %d * * *", m, h)
+}
+
+func RescheduleDaily(ctx context.Context, hhmm string) error {
+	spec := dailySpecFromTime(hhmm)
+	if cronEngine == nil {
+		Setup(ctx)
+	}
+
+	// Remove existing entry if present
+	if deadlineEntryID != 0 {
+		cronEngine.Remove(deadlineEntryID)
+		slog.Info("scheduler: removed previous deadline job entry", "entry_id", deadlineEntryID)
+		deadlineEntryID = 0
+	}
+
+	if deadlineJob == nil {
+		deadlineJob = jobs.NewDeadlineReminderJob(notification.NewService(notification.SystemEmailSender{}))
+	}
+
+	entryID, err := cronEngine.AddFunc(spec, func() {
+		jobCtx := context.Background()
+		slog.Info("deadline job: TRIGGERED", "at", time.Now(), "loc", time.Now().Location().String())
+		if err := deadlineJob.Run(jobCtx); err != nil {
+			slog.Error("scheduler: deadline reminder job failed", "error", err)
+		}
+	})
+	if err != nil {
+		slog.Error("scheduler: failed to reschedule deadline job", "error", err)
+		return err
+	}
+	deadlineEntryID = entryID
+	entry := cronEngine.Entry(entryID)
+	slog.Info("scheduler: rescheduled", "spec", spec, "next_run", entry.Next, "prev_run", entry.Prev)
+	return nil
 }

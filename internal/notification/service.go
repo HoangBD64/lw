@@ -27,6 +27,10 @@ func (s *Service) CreateNotifyInApp(n *model.Notification) error {
 	return app.Database.DB.Model(&model.Notification{}).Create(n).Error
 }
 
+func (s *Service) CreateBatchNotifyInApp(notis []model.Notification) error {
+	return app.Database.DB.Model(&model.Notification{}).Create(notis).Error
+}
+
 func (s *Service) SendEmailIfEnabled(user model.User, subject, body string) error {
 	var pref model.NotificationPreference
 	if err := app.Database.DB.Model(&model.NotificationPreference{}).Where("user_id = ?", user.ID).First(&pref).Error; err != nil {

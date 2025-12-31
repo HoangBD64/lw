@@ -3,13 +3,13 @@ package jobs
 import (
 	"context"
 	"core/app"
+	templates "core/internal/common/templates"
 	"core/internal/domain_model/model"
 	"core/internal/notification"
 	"core/internal/repo"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"time"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -23,19 +23,11 @@ func NewDeadlineReminderJob(service *notification.Service) *DeadlineReminderJob 
 }
 
 func (j *DeadlineReminderJob) Run(ctx context.Context) error {
-	now := time.Now()
-	target := now.Add(48 * time.Hour)
-	startOfDay := time.Date(target.Year(), target.Month(), target.Day(), 0, 0, 0, 0, target.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour).Add(-time.Nanosecond)
-
-	var ups []model.UserProcedure
-	tx := app.Database.DB.WithContext(ctx).Model(&model.UserProcedure{}).
-		Where("deadline_at >= ? AND deadline_at <= ?", startOfDay, endOfDay).
-		Find(&ups)
-	if err := tx.Error; err != nil {
+	ups, err := repo.GetAllUserProceduresDueInDays()
+	if err != nil {
 		return err
 	}
-
+	upsIDs := make([]int, 0, len(ups))
 	for _, up := range ups {
 		if up.UserID == nil {
 			continue
@@ -55,49 +47,66 @@ func (j *DeadlineReminderJob) Run(ctx context.Context) error {
 			procNumber = *up.ProcNumber
 		}
 		title := fmt.Sprintf("Upcoming deadline in 2 days: %s", procNumber)
-		content := fmt.Sprintf("Your procedure %s is due on %s.", procNumber, deadlineStr)
 
-		md := model.NotiMetadata{UserProcedureID: &up.ID, Content: &content}
-		mdJSON, _ := json.Marshal(md)
+		websiteURL := strings.TrimSpace(app.Config("WEB_BASE_URL"))
+		data := templates.DeadlineReminderData{
+			UserName:            user.Name,
+			ProcedureName:       up.TemplateName,
+			CompanyName:         up.CompanyName,
+			DueDate:             deadlineStr,
+			DaysLeft:            2,
+			UserProcedureNumber: procNumber,
+			URL:                 websiteURL,
+		}
+
+		bodyHTML, tmplErr := templates.RenderMailTemplate(templates.MailTemplateDeadlineReminder, data)
+		if tmplErr != nil {
+			slog.Debug("deadline job: render template failed, using plain text", "error", tmplErr)
+			bodyHTML = fmt.Sprintf("Your procedure %s is due on %s.", procNumber, deadlineStr)
+		}
+
+		userContent := fmt.Sprintf("Your procedure <strong>%s</strong> is due on <strong>%s</strong>.", procNumber, deadlineStr)
+		adminContent := fmt.Sprintf("Procedure <strong>%s</strong> is due on <strong>%s</strong>.", procNumber, deadlineStr)
+		// user app noti
+		notis := []model.Notification{}
 		userNoti := model.Notification{
-			UserID:   up.UserID,
-			Title:    title,
-			Metadata: mdJSON,
-			Type:     model.NOTI_DEADLINE_REMINDER,
+			UserID: up.UserID,
+			Title:  title,
+			Metadata: model.NotiMetadata{
+				UserProcedureID: &up.ID,
+				Content:         &userContent,
+			},
+			Type: model.NOTI_DEADLINE_REMINDER,
 		}
-		if err := j.notify.CreateNotifyInApp(&userNoti); err != nil {
-			slog.Error("deadline job: failed to create user notification", "up_id", up.ID, "error", err)
-		}
+		notis = append(notis, userNoti)
 
-		// Admin notification: targeted if AdminID exists, otherwise broadcast to admin channel
+		// admin app noti
 		var adminID *uuid.UUID = up.AdminID
 		adminNoti := model.Notification{
-			AdminID:  adminID,
-			Title:    title,
-			Metadata: mdJSON,
-			Type:     model.NOTI_DEADLINE_REMINDER,
+			AdminID: adminID,
+			Title:   title,
+			Metadata: model.NotiMetadata{
+				UserProcedureID: &up.ID,
+				Content:         &adminContent,
+			},
+			Type: model.NOTI_DEADLINE_REMINDER,
 		}
-		if err := j.notify.CreateNotifyInApp(&adminNoti); err != nil {
+		notis = append(notis, adminNoti)
+		
+		if err := j.notify.CreateBatchNotifyInApp(notis); err != nil {
 			slog.Error("deadline job: failed to create admin notification", "up_id", up.ID, "error", err)
 		}
 
-		if err := j.notify.SendEmailIfEnabled(user, title, content); err != nil {
+		// send mail
+		if err := j.notify.SendEmailIfEnabled(user, title, bodyHTML); err != nil {
 			slog.Debug("deadline job: email skipped", "reason", err)
 		}
-
-		// Mark as sent to avoid duplicates
-		// if err := markReminderSent(up.ID); err != nil {
-		// 	slog.Error("deadline job: failed to mark reminder sent", "up_id", up.ID, "error", err)
-		// }
+		upsIDs = append(upsIDs, up.ID)
+	}
+	// Mark as sent to avoid duplicates
+	if err := repo.MarkReminderSent(upsIDs); err != nil {
+		slog.Error("deadline job: failed to mark reminder sent", "up_ids", upsIDs, "error", err)
 	}
 
 	return nil
 }
-
-// func markReminderSent(userProcedureID int) error {
-// 	return app.Database.DB.Transaction(func(tx *gorm.DB) error {
-// 		return tx.Model(&model.UserProcedure{}).
-// 			Where("id = ?", userProcedureID).
-// 			Updates(map[string]any{"is_send_noti": true}).Error
-// 	})
-// }
