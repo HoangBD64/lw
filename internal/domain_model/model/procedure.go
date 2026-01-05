@@ -16,6 +16,8 @@ type Procedure struct {
 	UpdateBy    string     `json:"update_by,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	Cost        *float64   `json:"cost,omitempty"`
+	ExtraFeeID  *int       `json:"extra_fee_id,omitempty"`
+	ExtraFees   []ExtraFee `json:"extra_fees,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -86,7 +88,7 @@ type UserProcedure struct {
 	CompanyName         *string             `json:"company_name,omitempty"`
 	CompanyType         *string             `json:"company_type,omitempty"`
 	DueDate             *int                `json:"due_date,omitempty"`
-	// PaymentAccount      *string             `json:"payment_account,omitempty"`
+	PaymentAccount      *string             `json:"payment_account,omitempty"`
 	UserProcedureSteps  []UserProcedureStep `json:"user_procedure_steps,omitempty"`
 	Cost                *float64            `json:"cost,omitempty"`
 	FulfillmentStatus   *string             `json:"fulfillment_status,omitempty"`

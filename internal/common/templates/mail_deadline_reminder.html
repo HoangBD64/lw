@@ -73,7 +73,7 @@
             color: #6b7280;
         }
 
-        .btn {
+        /* .btn {
             display: inline-block;
             background: #0b5cff;
             color: #fff;
@@ -81,16 +81,16 @@
             padding: 10px 16px;
             border-radius: 8px;
             font-weight: 600;
-        }
+        } */
 
         .badge {
             display: inline-block;
             padding: 2px 8px;
             font-size: 12px;
             border-radius: 999px;
-            background: #eef2ff;
-            color: #334155;
-            border: 1px solid #dbe3ff;
+            background: #fff3e8;
+            color: #c2410c;
+            border: 1px solid #ffb27a;
             margin-left: 8px;
         }
 
@@ -125,7 +125,23 @@
                     <p>Please review the steps and provide any required information before the deadline to avoid delays.
                     </p>
                     {{if .URL}}
-                    <p><a href="{{.URL}}" class="btn">View Procedure Details</a></p>
+                    <!-- <p><a href="{{.URL}}" class="btn">View Procedure Details</a></p> -->
+                    <p>
+                        <a href="{{.URL}}" style="
+                        display:inline-block;
+                        background:linear-gradient(90deg, #ff8a00 0%, #ff5f1f 100%);
+                        color:#ffffff !important;
+                        text-decoration:none;
+                        padding:12px 18px;
+                        border-radius:10px;
+                        font-weight:600;
+                        font-size:14px;
+                        box-shadow:0 4px 10px rgba(255, 138, 0, 0.35);
+                        ">
+                            Open Website
+                        </a>
+                    </p>
+
                     {{end}}
                     <p class="muted">Thank you for using our service.</p>
                 </div>

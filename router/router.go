@@ -223,6 +223,13 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Get("/notification/detail.json", handler.AdminGetNotificationDetail)
 	api_admin.Get("/notification/total.json", handler.AdminGetTotalNotificationType)
 	api_admin.Get("/notification/mark_read_all.json", handler.AdminMarkReadAllNotification)
+
+	// extra fee
+	api_admin.Get("/extra-fees.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetExtraFees)
+	api_admin.Get("/extra-fees/:id.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetExtraFeeDetail)
+	api_admin.Post("/extra-fees.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminCreateExtraFee)
+	api_admin.Patch("/extra-fees/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateExtraFee)
+	api_admin.Delete("/extra-fees/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminDeleteExtraFee)
 }
 
 func Recover() {

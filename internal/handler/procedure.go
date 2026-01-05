@@ -41,6 +41,7 @@ func AdminCreateProcedure(c *fiber.Ctx) error {
 		IsActive:    &isActive,
 		DueDate:     input.DueDate,
 		Cost:        &totalCost,
+		ExtraFeeID:  input.ExtraFeeID,
 	}
 	if input.IsActive != nil {
 		p.IsActive = input.IsActive
@@ -86,6 +87,9 @@ func AdminUpdateProcedure(c *fiber.Ctx) error {
 	}
 	if input.IsActive != nil {
 		p.IsActive = input.IsActive
+	}
+	if input.ExtraFeeID != nil {
+		p.ExtraFeeID = input.ExtraFeeID
 	}
 	p.Description = input.Description
 	p.DueDate = input.DueDate
@@ -169,6 +173,7 @@ func AdminBulkUpsertProcedure(c *fiber.Ctx) error {
 		DueDate:     input.Procedure.DueDate,
 		Cost:        &totalCost,
 		AdminID:     input.Procedure.AdminID,
+		ExtraFeeID:  input.Procedure.ExtraFeeID,
 	}
 	if input.Procedure.IsActive != nil {
 		proc.IsActive = input.Procedure.IsActive
@@ -581,15 +586,15 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 		}
 		websiteURL := strings.TrimSpace(app.Config("WEB_BASE_URL"))
 
-		data := map[string]any{
-			"UserName":            user.Name,
-			"ProcedureName":       up.TemplateName,
-			"CompanyName":         lo.FromPtr(up.CompanyName),
-			"Status":              status,
-			"DueDays":             dueDays,
-			"Cost":                fmt.Sprintf("$%.2f", cost),
-			"UserProcedureNumber": up.ProcNumber,
-			"URL":                 websiteURL,
+		data := templates.DeadlineReminderData{
+			UserName:            user.Name,
+			ProcedureName:       up.TemplateName,
+			CompanyName:         lo.FromPtr(up.CompanyName),
+			Status:              status,
+			DueDays:             dueDays,
+			Cost:                fmt.Sprintf("$%.2f", cost),
+			UserProcedureNumber: lo.FromPtr(up.ProcNumber),
+			URL:                 websiteURL,
 		}
 
 		body, err := templates.RenderMailTemplate(tmpl, data)
@@ -764,7 +769,6 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 			if allDone {
 				status := model.USER_PROCEDURE_COMPLETED
 				up.Status = &status
-				go SendMailToUser([]int{userProcedureID}, model.NOTI_PROCEDURE_COMPLETED)
 			} else if anyError {
 				status := model.USER_PROCEDURE_ERROR
 				up.Status = &status
@@ -775,6 +779,10 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 
 			if err := repo.AdminUpdateUserProcedure(&up); err != nil {
 				slog.Error("Failed to update user procedure status", "user_procedure_id", userProcedureID, "error", err)
+			}
+
+			if allDone {
+				go SendMailToUser([]int{userProcedureID}, model.NOTI_PROCEDURE_COMPLETED)
 			}
 		}(ups.UserProcedureID)
 	}

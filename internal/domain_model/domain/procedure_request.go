@@ -11,6 +11,7 @@ type ProcedureCreateRequest struct {
 	DueDate     *int    `json:"due_date,omitempty"`
 	IsActive    *bool   `json:"is_active,omitempty"`
 	Cost        float64 `json:"cost,omitempty" validate:"required,gte=0"`
+	ExtraFeeID  *int    `json:"extra_fee_id,omitempty"`
 }
 
 type ProcedureUpdateRequest struct {
@@ -19,6 +20,7 @@ type ProcedureUpdateRequest struct {
 	DueDate     *int     `json:"due_date,omitempty"`
 	IsActive    *bool    `json:"is_active,omitempty"`
 	Cost        *float64 `json:"cost,omitempty"`
+	ExtraFeeID  *int     `json:"extra_fee_id,omitempty"`
 }
 
 type ProcedureDeleteRequest struct {
@@ -85,6 +87,7 @@ type AdminBulkUpsertProcedure struct {
 	DueDate     *int       `json:"due_date,omitempty"`
 	IsActive    *bool      `json:"is_active,omitempty"`
 	Cost        *float64   `json:"cost,omitempty" validate:"required,gte=0"`
+	ExtraFeeID  *int       `json:"extra_fee_id,omitempty"`
 }
 
 type AdminBulkUpsertProcedureStep struct {

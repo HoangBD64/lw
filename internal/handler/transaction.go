@@ -215,11 +215,11 @@ func InitPayment(c *fiber.Ctx) error {
 }
 
 type FinishBody struct {
-	OrderID     string `json:"order_id"`
-	State       string `json:"state"`
-	CompanyName string `json:"company_name"`
-	CompanyType string `json:"company_type"`
-	// PaymentAccount string `json:"payment_account"`
+	OrderID        string  `json:"order_id"`
+	State          string  `json:"state"`
+	CompanyName    string  `json:"company_name"`
+	CompanyType    string  `json:"company_type"`
+	PaymentAccount *string `json:"payment_account"`
 }
 
 func FinishPayment(c *fiber.Ctx) error {
@@ -350,19 +350,24 @@ func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body Fin
 	status := model.USER_PROCEDURE_PENDING
 	title := "Untitled"
 	isHaveTicket := false
+	var paymentAccount *string
+	if body.PaymentAccount != nil && *body.PaymentAccount != "" {
+		paymentAccount = lo.ToPtr(strings.ToLower(*body.PaymentAccount))
+	}
 	new_user_procedure := model.UserProcedure{
-		UserID:       transaction.UserID,
-		ProcedureID:  procedure_template.ID,
-		TemplateName: procedure_template.Name,
-		Cost:         procedure_template.Cost,
-		DueDate:      procedure_template.DueDate,
-		Status:       &status,
-		Title:        &title,
-		IsHaveTicket: &isHaveTicket,
-		State:        &body.State,
-		CompanyName:  &body.CompanyName,
-		CompanyType:  &body.CompanyType,
-		DeadlineAt:   deadlineAt,
+		UserID:         transaction.UserID,
+		ProcedureID:    procedure_template.ID,
+		TemplateName:   procedure_template.Name,
+		Cost:           procedure_template.Cost,
+		DueDate:        procedure_template.DueDate,
+		Status:         &status,
+		Title:          &title,
+		IsHaveTicket:   &isHaveTicket,
+		State:          &body.State,
+		CompanyName:    &body.CompanyName,
+		CompanyType:    &body.CompanyType,
+		DeadlineAt:     deadlineAt,
+		PaymentAccount: paymentAccount,
 	}
 	up, err := repo.CreateUserProcedure(new_user_procedure)
 	if err != nil {

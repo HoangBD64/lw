@@ -87,8 +87,9 @@ func MigrateDatabase(DB *gorm.DB) {
 		&model.NotificationPreference{},
 		&model.Transaction{},
 		&model.ContactForm{},
+		&model.ExtraFee{},
 	}
-	
+
 	MigrateNotificationsMetadataToJSONB(DB)
 
 	if err := DB.AutoMigrate(migrations...); err != nil {

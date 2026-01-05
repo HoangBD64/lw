@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"core/app"
+	"core/internal/common/templates"
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
@@ -256,9 +258,107 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 		slog.ErrorContext(context.TODO(), "failed to unmarshal existing storage credential data", "error", err)
 	}
 
+	subject := "LegalSwift Mail Test"
+	content := "<p>This is a test email to verify mail settings.</p>"
+
+	switch input.Option {
+	case "deadline_reminder":
+		subject = "Reminder: Upcoming Deadline<<LegalSwift Mail Test>>"
+		fake := templates.DeadlineReminderData{
+			UserName:            "Jane Doe",
+			ProcedureName:       "Company Registration",
+			CompanyName:         "ACME LLC",
+			DueDate:             "2026-01-15",
+			DaysLeft:            2,
+			UserProcedureNumber: "#LW0001",
+			URL:                 app.Config("WEB_BASE_URL"),
+		}
+		if html, err := templates.RenderMailTemplate(templates.MailTemplateDeadlineReminder, fake); err == nil {
+			content = html
+		} else {
+			return c.JSON(base.BaseResponse{Status: false, Message: "failed to render template", Error: err})
+		}
+	case "invoice_completed":
+		subject = "Payment Confirmed: Company Registration<<LegalSwift Mail Test>>"
+		fake := templates.DeadlineReminderData{
+			UserName:            "Jane Doe",
+			ProcedureName:       "Company Registration",
+			CompanyName:         "ACME LLC",
+			Cost:                "$299",
+			UserProcedureNumber: "#LW0001",
+			URL:                 app.Config("WEB_BASE_URL"),
+		}
+		if html, err := templates.RenderMailTemplate(templates.MailTemplateInvoiceCompleted, fake); err == nil {
+			content = html
+		} else {
+			return c.JSON(base.BaseResponse{Status: false, Message: "failed to render template", Error: err})
+		}
+	case "procedure_cancelled":
+		subject = "Procedure Cancelled: Company Registration<<LegalSwift Mail Test>>"
+		fake := templates.DeadlineReminderData{
+			UserName:            "Jane Doe",
+			ProcedureName:       "Company Registration",
+			CompanyName:         "ACME LLC",
+			Status:              "Cancelled",
+			UserProcedureNumber: "#LW0001",
+			URL:                 app.Config("WEB_BASE_URL"),
+		}
+		if html, err := templates.RenderMailTemplate(templates.MailTemplateProcedureCancelled, fake); err == nil {
+			content = html
+		} else {
+			return c.JSON(base.BaseResponse{Status: false, Message: "failed to render template", Error: err})
+		}
+	case "procedure_completed":
+		subject = "Procedure Completed: Company Registration<<LegalSwift Mail Test>>"
+		fake := templates.DeadlineReminderData{
+			UserName:            "Jane Doe",
+			ProcedureName:       "Company Registration",
+			CompanyName:         "ACME LLC",
+			Status:              "Completed",
+			UserProcedureNumber: "#LW0001",
+			URL:                 app.Config("WEB_BASE_URL"),
+		}
+		if html, err := templates.RenderMailTemplate(templates.MailTemplateProcedureCompleted, fake); err == nil {
+			content = html
+		} else {
+			return c.JSON(base.BaseResponse{Status: false, Message: "failed to render template", Error: err})
+		}
+	case "procedure_error":
+		subject = "Procedure Issue Detected: Company Registration<<LegalSwift Mail Test>>"
+		fake := templates.DeadlineReminderData{
+			UserName:            "Jane Doe",
+			ProcedureName:       "Company Registration",
+			CompanyName:         "ACME LLC",
+			Status:              "Needs Attention",
+			UserProcedureNumber: "#LW0001",
+			URL:                 app.Config("WEB_BASE_URL"),
+		}
+		if html, err := templates.RenderMailTemplate(templates.MailTemplateProcedureError, fake); err == nil {
+			content = html
+		} else {
+			return c.JSON(base.BaseResponse{Status: false, Message: "failed to render template", Error: err})
+		}
+	default:
+		// test mail procedure template
+		subject = "Procedure Completed: Company Registration<<LegalSwift Mail Test>>"
+		fake := templates.DeadlineReminderData{
+			UserName:            "Jane Doe",
+			ProcedureName:       "Company Registration",
+			CompanyName:         "ACME LLC",
+			Status:              "Completed",
+			UserProcedureNumber: "#LW0001",
+			URL:                 app.Config("WEB_BASE_URL"),
+		}
+		if html, err := templates.RenderMailTemplate(templates.MailTemplateProcedureCompleted, fake); err == nil {
+			content = html
+		} else {
+			return c.JSON(base.BaseResponse{Status: false, Message: "failed to render template", Error: err})
+		}
+	}
+
 	mailInput := send_mail.InputMail{
-		Subject: "LegalSwift Mail Test",
-		Content: "<p>This is a test email to verify mail settings.</p>",
+		Subject: subject,
+		Content: content,
 		Mail:    input.Address,
 	}
 

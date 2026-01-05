@@ -24,16 +24,25 @@ func CreateNotification(ctx context.Context, noti model.Notification) (model.Not
 
 func GetNotifications(query Query, user model.User) ([]model.Notification, int64, error) {
 	var notis []model.Notification
-	tx := app.Database.DB.Model(&model.Notification{}).Where("user_id = ?", user.ID)
+	tx := app.Database.DB.Model(&model.Notification{}).Where("notifications.user_id = ?", user.ID)
 	if query.Search != "" {
-		tx = tx.Where("title ILIKE ? ", "%"+query.Search+"%")
+		tx = tx.Joins(`
+			LEFT JOIN user_procedures up
+			  ON (notifications.metadata->>'user_procedure_id')::int = up.id
+		`)
+		tx = tx.Where(
+			"notifications.title ILIKE ? OR up.proc_number ILIKE ?",
+			"%"+query.Search+"%",
+			"%"+query.Search+"%",
+		)
 	}
+
 	if query.Type != "" {
-		tx = tx.Where("type = ?", query.Type)
+		tx = tx.Where("notifications.type = ?", query.Type)
 	}
 	var count int64
 	err := tx.Count(&count)
-	err = tx.Offset(query.Limit * (query.Page - 1)).Limit(query.Limit).Order("created_at DESC").Find(&notis)
+	err = tx.Offset(query.Limit * (query.Page - 1)).Limit(query.Limit).Order("notifications.created_at DESC").Find(&notis)
 	return notis, count, err.Error
 }
 
@@ -137,7 +146,7 @@ func AdminGetNotifications(ctx context.Context, query Query, isRoleAdmin bool) (
 		return nil, 0, err
 	}
 
-	tx = tx.Scopes(pagination(query.Page, query.Limit)).Order("created_at DESC").Find(&out)
+	tx = tx.Scopes(pagination(query.Page, query.Limit)).Order("notifications.created_at DESC").Find(&out)
 
 	return out, count, nil
 }

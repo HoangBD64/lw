@@ -73,7 +73,7 @@
             color: #6b7280;
         }
 
-        .btn {
+        /* .btn {
             display: inline-block;
             background: #0b5cff;
             color: #fff;
@@ -81,7 +81,7 @@
             padding: 10px 16px;
             border-radius: 8px;
             font-weight: 600;
-        }
+        } */
 
         .footer {
             padding: 0 24px 20px;
@@ -114,7 +114,16 @@
                     <p>If you believe this cancellation was made in error or if you need further clarification, please
                         feel free to contact us for assistance.</p>
                     {{if .URL}}
-                    <p><a href="{{.URL}}" class="btn">View Procedure Details</a></p>
+                    <!-- <p><a href="{{.URL}}" class="btn">View Procedure Details</a></p> -->
+                    <p><a href="{{.URL}}" style="
+                                                display:inline-block;
+                                                background:#0b5cff;
+                                                color:#ffffff !important;
+                                                text-decoration:none;
+                                                padding:10px 16px;
+                                                border-radius:8px;
+                                                font-weight:600;
+                                            ">Open Website</a></p>
                     {{end}}
                     <p class="muted">Thank you for your understanding and for using our service.</p>
                 </div>

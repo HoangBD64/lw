@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 type DeadlineReminderJob struct {
@@ -52,7 +53,7 @@ func (j *DeadlineReminderJob) Run(ctx context.Context) error {
 		data := templates.DeadlineReminderData{
 			UserName:            user.Name,
 			ProcedureName:       up.TemplateName,
-			CompanyName:         up.CompanyName,
+			CompanyName:         lo.FromPtr(up.CompanyName),
 			DueDate:             deadlineStr,
 			DaysLeft:            2,
 			UserProcedureNumber: procNumber,
@@ -92,7 +93,7 @@ func (j *DeadlineReminderJob) Run(ctx context.Context) error {
 			Type: model.NOTI_DEADLINE_REMINDER,
 		}
 		notis = append(notis, adminNoti)
-		
+
 		if err := j.notify.CreateBatchNotifyInApp(notis); err != nil {
 			slog.Error("deadline job: failed to create admin notification", "up_id", up.ID, "error", err)
 		}

@@ -38,9 +38,12 @@ const (
 type DeadlineReminderData struct {
 	UserName            string
 	ProcedureName       string
-	CompanyName         *string
+	CompanyName         string
 	DueDate             string
 	DaysLeft            int
 	UserProcedureNumber string
 	URL                 string
+	Cost                string
+	Status              string
+	DueDays             int
 }

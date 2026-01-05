@@ -73,7 +73,7 @@
             color: #6b7280;
         }
 
-        .btn {
+        /* .btn {
             display: inline-block;
             background: #0b5cff;
             color: #fff;
@@ -81,7 +81,7 @@
             padding: 10px 16px;
             border-radius: 8px;
             font-weight: 600;
-        }
+        } */
 
         .footer {
             padding: 0 24px 20px;
@@ -111,7 +111,16 @@
                     <p>The procedure will continue as planned. You can track the progress and invoices in the system.
                     </p>
                     {{if .URL}}
-                    <p><a href="{{.URL}}" class="btn">Open Website</a></p>
+                    <!-- <p><a href="{{.URL}}" class="btn">Open Website</a></p> -->
+                    <p><a href="{{.URL}}" style="
+                                                display:inline-block;
+                                                background:#0b5cff;
+                                                color:#ffffff !important;
+                                                text-decoration:none;
+                                                padding:10px 16px;
+                                                border-radius:8px;
+                                                font-weight:600;
+                                            ">Open Website</a></p>
                     {{end}}
                     <p class="muted">Thank you for your payment.</p>
                 </div>

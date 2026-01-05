@@ -14,7 +14,7 @@ import (
 func GetNotifications(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(model.User)
 	if !ok {
-		return c.JSON(fiber.Map{"status": false, "error": "Please login again"})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	var query repo.Query
 	query.Parse(c)
