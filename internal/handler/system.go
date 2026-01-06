@@ -2,19 +2,20 @@ package handler
 
 import (
 	"context"
-	"core/app"
 	"core/internal/common/templates"
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
 	"core/internal/scheduler"
 	"core/pkg/send_mail"
+	"core/utils"
 	"core/utils/base"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/datatypes"
@@ -105,6 +106,49 @@ func GetSystemSetting(c *fiber.Ctx) error {
 		}
 
 		setting.Metadata = mailSettingJson
+	}
+
+	if setting.Type == model.JOB_SCHEDULER {
+		schedulerConfig := model.SchedulerConfig{}
+		if err := json.Unmarshal(setting.Metadata, &schedulerConfig); err != nil {
+			slog.ErrorContext(context.TODO(), "failed to unmarshal scheduler config data", "error", err)
+		}
+		// apply defaults when missing
+		if schedulerConfig.DailyTime == "" {
+			schedulerConfig.DailyTime = "09:00"
+		}
+		// default enabled true if metadata missing
+		if len(setting.Metadata) == 0 {
+			schedulerConfig.Enabled = true
+		}
+		schedulerConfigJson, err := json.Marshal(schedulerConfig)
+		if err != nil {
+			return c.JSON(base.BaseResponse{Status: false, Message: "could not process fetched data", Error: err})
+		}
+		setting.Metadata = schedulerConfigJson
+
+		needUpdate := false
+
+		if strings.TrimSpace(schedulerConfig.DailyTime) == "" {
+			schedulerConfig.DailyTime = "09:00"
+			needUpdate = true
+		}
+
+		if needUpdate {
+			newMetadata, err := json.Marshal(schedulerConfig)
+			if err != nil {
+				return c.JSON(base.BaseResponse{Status: false, Message: "could not process fetched data", Error: err})
+			}
+
+			setting.Metadata = newMetadata
+
+			updatedSetting, err := repo.UpdateSystemSetting(setting)
+			if err != nil {
+				return c.JSON(base.BaseResponse{Status: false, Message: "failed to update data", Error: err})
+			}
+
+			setting = updatedSetting
+		}
 	}
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "ok", Data: setting})
@@ -213,26 +257,57 @@ func AdminUpdateSetting(c *fiber.Ctx) error {
 		input.Metadata = newSetting
 	}
 
-	setting_found.Resource = input.Resource
-	setting_found.Metadata = input.Metadata
-	setting_found.Contant = input.Contant
-
-	if _, err := repo.UpdateSystemSetting(setting_found); err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "failed to update data", Error: err})
-	}
-
-	// If scheduler config was updated, reschedule cron according to the new time
 	if setting_found.Type == model.JOB_SCHEDULER {
+		var oldConf model.SchedulerConfig
 		var newConf model.SchedulerConfig
-		if err := json.Unmarshal(input.Metadata, &newConf); err != nil {
-			slog.Error("scheduler: failed to parse updated scheduler config", "error", err)
-		} else {
-			if err := scheduler.RescheduleDaily(context.TODO(), newConf.DailyTime); err != nil {
-				slog.Error("scheduler: reschedule failed", "error", err)
+
+		if len(setting_found.Metadata) > 0 {
+			if err := json.Unmarshal(setting_found.Metadata, &oldConf); err != nil {
+				slog.Error("scheduler: failed to parse existing scheduler config", "error", err)
 			}
+		}
+
+		if len(input.Metadata) > 0 {
+			if err := json.Unmarshal(input.Metadata, &newConf); err != nil {
+				slog.Error("scheduler: failed to parse updated scheduler config", "error", err)
+				return c.JSON(base.BaseResponse{Status: false, Message: "invalid scheduler config", Error: err})
+			}
+		}
+
+		if strings.TrimSpace(newConf.DailyTime) == "" {
+			if strings.TrimSpace(oldConf.DailyTime) != "" {
+				newConf.DailyTime = oldConf.DailyTime
+			} else {
+				newConf.DailyTime = "09:00"
+			}
+		}
+
+		switch {
+		case oldConf.Enabled && newConf.Enabled:
+			if newConf.DailyTime != oldConf.DailyTime {
+				if err := scheduler.RescheduleDaily(c.Context(), newConf.DailyTime); err != nil {
+					slog.Error("scheduler: reschedule failed", "error", err)
+				}
+			}
+
+		case !oldConf.Enabled && newConf.Enabled:
+			if err := scheduler.Enable(c.Context(), newConf.DailyTime); err != nil {
+				slog.Error("scheduler: enable failed", "error", err)
+			}
+
+		case oldConf.Enabled && !newConf.Enabled:
+			scheduler.Disable()
+
+		default:
 		}
 	}
 
+	setting_found.Resource = input.Resource
+	setting_found.Metadata = input.Metadata
+	setting_found.Contant = input.Contant
+	if _, err := repo.UpdateSystemSetting(setting_found); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "failed to update data", Error: err})
+	}
 	return c.JSON(base.BaseResponse{Status: true, Message: "ok"})
 }
 
@@ -271,7 +346,7 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 			DueDate:             "2026-01-15",
 			DaysLeft:            2,
 			UserProcedureNumber: "#LW0001",
-			URL:                 app.Config("WEB_BASE_URL"),
+			URL:                 utils.GetWebBaseURL(),
 		}
 		if html, err := templates.RenderMailTemplate(templates.MailTemplateDeadlineReminder, fake); err == nil {
 			content = html
@@ -286,7 +361,7 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 			CompanyName:         "ACME LLC",
 			Cost:                "$299",
 			UserProcedureNumber: "#LW0001",
-			URL:                 app.Config("WEB_BASE_URL"),
+			URL:                 utils.GetWebBaseURL(),
 		}
 		if html, err := templates.RenderMailTemplate(templates.MailTemplateInvoiceCompleted, fake); err == nil {
 			content = html
@@ -301,7 +376,7 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 			CompanyName:         "ACME LLC",
 			Status:              "Cancelled",
 			UserProcedureNumber: "#LW0001",
-			URL:                 app.Config("WEB_BASE_URL"),
+			URL:                 utils.GetWebBaseURL(),
 		}
 		if html, err := templates.RenderMailTemplate(templates.MailTemplateProcedureCancelled, fake); err == nil {
 			content = html
@@ -316,7 +391,7 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 			CompanyName:         "ACME LLC",
 			Status:              "Completed",
 			UserProcedureNumber: "#LW0001",
-			URL:                 app.Config("WEB_BASE_URL"),
+			URL:                 utils.GetWebBaseURL(),
 		}
 		if html, err := templates.RenderMailTemplate(templates.MailTemplateProcedureCompleted, fake); err == nil {
 			content = html
@@ -331,7 +406,7 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 			CompanyName:         "ACME LLC",
 			Status:              "Needs Attention",
 			UserProcedureNumber: "#LW0001",
-			URL:                 app.Config("WEB_BASE_URL"),
+			URL:                 utils.GetWebBaseURL(),
 		}
 		if html, err := templates.RenderMailTemplate(templates.MailTemplateProcedureError, fake); err == nil {
 			content = html
@@ -347,7 +422,7 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 			CompanyName:         "ACME LLC",
 			Status:              "Completed",
 			UserProcedureNumber: "#LW0001",
-			URL:                 app.Config("WEB_BASE_URL"),
+			URL:                 utils.GetWebBaseURL(),
 		}
 		if html, err := templates.RenderMailTemplate(templates.MailTemplateProcedureCompleted, fake); err == nil {
 			content = html

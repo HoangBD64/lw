@@ -77,10 +77,12 @@ func InitPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
 	}
 	type Input struct {
-		Deposit     float64 `json:"deposit" validate:"required"`
-		Currency    string  `json:"currency"`
-		Type        string  `json:"type" validate:"required"`
-		ProcedureID int     `json:"procedure_id" validate:"required"`
+		Deposit     float64  `json:"deposit" validate:"required"`
+		Currency    string   `json:"currency"`
+		Type        string   `json:"type" validate:"required"`
+		ProcedureID int      `json:"procedure_id" validate:"required"`
+		Option      []string `json:"option"`
+		State       string   `json:"state"`
 	}
 	var input Input
 	if err := c.BodyParser(&input); err != nil {
@@ -119,9 +121,9 @@ func InitPayment(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "This payment method is not available yet.", ErrorCode: "PAYMENT_METHOD_DISABLE"})
 	}
 
-	up, err := repo.UserGetProcedureByID(input.ProcedureID)
+	requiredAmount, err := calculateProcedureRequiredAmount(input.ProcedureID, input.Option, input.State)
 	if err != nil {
-		return c.JSON(base.BaseResponse{Status: false, Message: "Procedure not found", Error: err})
+		return c.JSON(base.BaseResponse{Status: false, Message: "Failed to calculate required amount", Error: err})
 	}
 
 	switch payment_method.Type {
@@ -137,9 +139,9 @@ func InitPayment(c *fiber.Ctx) error {
 			payment_method.Domain = paypal.APIBaseSandBox
 		}
 		net := calculatePrice(input.Deposit, payment_method.TransactionFee)
-		required := lo.FromPtr(up.Cost)
+		required := requiredAmount
 		if net < required {
-			return c.JSON(base.BaseResponse{Status: false, Message: "Insufficient amount for this UserProcedure", ErrorCode: "INSUFFICIENT_FUNDS"})
+			return c.JSON(base.BaseResponse{Status: false, Message: fmt.Sprintf("Insufficient amount for this UserProcedure. Required: %.2f, Provided: %.2f", required, net), ErrorCode: "INSUFFICIENT_FUNDS"})
 		}
 		new_trans := model.Transaction{
 			UserID:        &user.ID,
@@ -180,7 +182,7 @@ func InitPayment(c *fiber.Ctx) error {
 		}
 		airwallex_info.Token = token.Token
 		net := calculatePrice(input.Deposit, payment_method.TransactionFee)
-		required := lo.FromPtr(up.Cost)
+		required := requiredAmount
 		if net < required {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Insufficient amount for this UserProcedure", ErrorCode: "INSUFFICIENT_FUNDS"})
 		}
@@ -661,4 +663,72 @@ func calculatePrice(price float64, percent float64) float64 {
 	}
 	price = mathFloorPrice(price - mathCeilPrice((price*percent)/100))
 	return price
+}
+
+func calculateProcedureRequiredAmount(procedureID int, selectedOptions []string, state string) (float64, error) {
+	proc, err := repo.UserGetProcedureByID(procedureID)
+	if err != nil {
+		return 0, err
+	}
+	baseCost := 0.0
+	if proc.Cost != nil {
+		baseCost = lo.FromPtr(proc.Cost)
+	}
+
+	normState := strings.ToLower(strings.TrimSpace(state))
+	optionSet := map[string]struct{}{}
+	for _, opt := range selectedOptions {
+		o := strings.ToLower(strings.TrimSpace(opt))
+		if o != "" {
+			optionSet[o] = struct{}{}
+		}
+	}
+
+	var extraFee model.ExtraFee
+	if proc.ExtraFeeID != nil {
+		ef, err := repo.GetExtraFeeByID(*proc.ExtraFeeID)
+		if err != nil {
+			return 0, err
+		}
+		extraFee = ef
+	}
+
+	optionsCost := 0.0
+	regionCost := 0.0
+	for _, op := range extraFee.OptionsPrices {
+		name := strings.ToLower(strings.TrimSpace(op.Name))
+		if _, ok := optionSet[name]; ok {
+			optionsCost += op.Cost
+		}
+	}
+	if len(extraFee.RegionsPrices) > 0 {
+		var matched *model.RegionsPrice
+		var fallback *model.RegionsPrice
+		for i := range extraFee.RegionsPrices {
+			rp := extraFee.RegionsPrices[i]
+			for _, r := range rp.Regions {
+				rr := strings.ToLower(strings.TrimSpace(r))
+				if rr == "row" {
+					fallback = &rp
+				}
+			}
+			if normState != "" && matched == nil {
+				for _, r := range rp.Regions {
+					if strings.ToLower(strings.TrimSpace(r)) == normState {
+						matched = &rp
+						break
+					}
+				}
+			}
+		}
+		if matched != nil {
+			regionCost = matched.Cost
+		} else if fallback != nil {
+			regionCost = fallback.Cost
+		}
+	}
+
+	total := baseCost + optionsCost + regionCost
+	total = mathCeilPrice(total)
+	return total, nil
 }

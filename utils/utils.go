@@ -2,6 +2,7 @@
 package utils
 
 import (
+	"core/app"
 	"crypto/rand"
 	"encoding/json"
 	"math"
@@ -131,4 +132,11 @@ func ToJSON (v any) ([]byte, error) {
 
 func FromJSON (data []byte, v any) error {
 	return json.Unmarshal(data, v)
+}
+
+func GetWebBaseURL() string {
+	if app.Config("WEB_BASE_URL") != "" {
+		return app.Config("WEB_BASE_URL")
+	}
+	return "https://legalswift.com"
 }

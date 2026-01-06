@@ -1,10 +1,12 @@
 package router
 
 import (
+	"context"
 	"core/app"
 	mainapp "core/app"
 	"core/internal/handler"
 	"core/internal/middleware"
+	"core/internal/scheduler"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,7 +23,7 @@ import (
 
 func Setup() {
 	app.InitLoggers()
-	// scheduler.Setup(context.TODO())
+	scheduler.Setup(context.TODO())
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 200 * 1024 * 1024,
@@ -228,7 +230,7 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Get("/extra-fees.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetExtraFees)
 	api_admin.Get("/extra-fees/:id.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetExtraFeeDetail)
 	api_admin.Post("/extra-fees.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminCreateExtraFee)
-	api_admin.Patch("/extra-fees/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateExtraFee)
+	api_admin.Patch("/extra-fees.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateExtraFee)
 	api_admin.Delete("/extra-fees/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminDeleteExtraFee)
 }
 

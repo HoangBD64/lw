@@ -54,6 +54,7 @@ func VerifyUserSSO(c *fiber.Ctx) error {
 			if err != nil {
 				return c.JSON(base.BaseResponse{Status: false, Message: "Can't create user", Error: err})
 			}
+			go PreDefaultSettingsUser(current_user)
 		} else {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Can't get user by sso id", Error: err})
 		}
@@ -92,7 +93,6 @@ func VerifyUserSSO(c *fiber.Ctx) error {
 	now := time.Now()
 	current_user.LastLogin = &now
 	go repo.UpdateUserLoginTime(current_user)
-	go PreDefaultSettingsUser(current_user)
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: userReturn})
 }
 

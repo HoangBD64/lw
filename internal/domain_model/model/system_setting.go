@@ -65,4 +65,5 @@ type SystemSettingMail struct {
 
 type SchedulerConfig struct {
 	DailyTime string `json:"daily_time"` // ex: { "daily_time": "09:00" }
+	Enabled   bool   `json:"enabled"`
 }

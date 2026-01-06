@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"core/app"
 	"core/internal/common/templates"
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
@@ -91,8 +90,12 @@ func AdminUpdateProcedure(c *fiber.Ctx) error {
 	if input.ExtraFeeID != nil {
 		p.ExtraFeeID = input.ExtraFeeID
 	}
-	p.Description = input.Description
-	p.DueDate = input.DueDate
+	if input.Description != nil {
+		p.Description = input.Description
+	}
+	if input.DueDate != nil {
+		p.DueDate = input.DueDate
+	}
 	if err := repo.AdminUpdateProcedure(&p); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't Update Procedure", Error: err})
 	}
@@ -504,27 +507,32 @@ func AdminAssignUserProcedure(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Assign failed", Error: err})
 	}
 
+	notifications := make([]model.Notification, 0, len(input.UserProcedureID))
 	ids := make([]string, 0, len(input.UserProcedureID))
+	itemNumber := ""
 	for _, upID := range input.UserProcedureID {
 		upItem, _ := repo.GetUserProcedureByID(upID)
 		if upItem.ProcNumber != nil && *upItem.ProcNumber != "" {
-			ids = append(ids, *upItem.ProcNumber)
+			itemNumber = *upItem.ProcNumber
+			ids = append(ids, itemNumber)
 		} else {
-			ids = append(ids, strconv.Itoa(upID))
+			itemNumber = strconv.Itoa(upID)
+			ids = append(ids, itemNumber)
 		}
-	}
 
-	metadata := model.NotiMetadata{
-		UserProcedureID: lo.ToPtr(input.UserProcedureID[0]),
-		Content:         lo.ToPtr(fmt.Sprintf("Procedures <strong>%s</strong> have been assigned to you by Admin.", strings.Join(ids, ", "))),
+		metadata := model.NotiMetadata{
+			UserProcedureID: lo.ToPtr(upID),
+			Content:         lo.ToPtr(fmt.Sprintf("Procedure <strong>%s</strong> has been assigned to you by Admin.", itemNumber)),
+		}
+		notification := model.Notification{
+			AdminID:  &adminAssign.ID,
+			Title:    "Procedure assigned",
+			Type:     model.NOTIFICATION_PROCEDURE,
+			Metadata: metadata,
+		}
+		notifications = append(notifications, notification)
 	}
-	notification := model.Notification{
-		AdminID:  &adminAssign.ID,
-		Title:    "Procedure assigned",
-		Type:     model.NOTIFICATION_PROCEDURE,
-		Metadata: metadata,
-	}
-	go repo.CreateNotification(c.Context(), notification)
+	go repo.BulkCreateNotification(c.Context(), notifications)
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &affected})
 }
@@ -584,7 +592,7 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 		if up.Status != nil {
 			status = *up.Status
 		}
-		websiteURL := strings.TrimSpace(app.Config("WEB_BASE_URL"))
+		websiteURL := strings.TrimSpace(utils.GetWebBaseURL())
 
 		data := templates.DeadlineReminderData{
 			UserName:            user.Name,
@@ -732,7 +740,9 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 		status := model.USER_PROCEDURE_ERROR
 		userProcedure.Status = &status
 		go repo.AdminUpdateUserProcedure(&userProcedure)
-		go SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_PROCEDURE_ERROR)
+		if ups.Status != model.USER_PROCEDURE_STEP_ERROR {
+			go SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_PROCEDURE_ERROR)
+		}
 	}
 	ups.Status = input.Status
 	ups.UserCompleted = input.UserCompleted

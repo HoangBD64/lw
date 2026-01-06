@@ -2,11 +2,11 @@ package jobs
 
 import (
 	"context"
-	"core/app"
 	templates "core/internal/common/templates"
 	"core/internal/domain_model/model"
 	"core/internal/notification"
 	"core/internal/repo"
+	"core/utils"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -49,7 +49,7 @@ func (j *DeadlineReminderJob) Run(ctx context.Context) error {
 		}
 		title := fmt.Sprintf("Upcoming deadline in 2 days: %s", procNumber)
 
-		websiteURL := strings.TrimSpace(app.Config("WEB_BASE_URL"))
+		websiteURL := strings.TrimSpace(utils.GetWebBaseURL())
 		data := templates.DeadlineReminderData{
 			UserName:            user.Name,
 			ProcedureName:       up.TemplateName,

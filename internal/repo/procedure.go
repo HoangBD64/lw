@@ -18,6 +18,7 @@ func AdminGetProcedureByID(id int) (model.Procedure, error) {
 	var p model.Procedure
 	tx := app.Database.DB.
 		Preload("ProcedureSteps").
+		Preload("ExtraFees").
 		First(&p, "id = ?", id)
 	return p, tx.Error
 }
@@ -423,6 +424,7 @@ func UserGetProcedureByID(id int) (model.Procedure, error) {
 	var p model.Procedure
 	tx := app.Database.DB.
 		Preload("ProcedureSteps").
+		Preload("ExtraFees").
 		Where("is_active = ?", true).
 		First(&p, "id = ?", id)
 	return p, tx.Error

@@ -22,6 +22,14 @@ func CreateNotification(ctx context.Context, noti model.Notification) (model.Not
 	return noti, tx.Error
 }
 
+func BulkCreateNotification(ctx context.Context, noti []model.Notification) ([]model.Notification, error) {
+	tx := app.Database.DB.Create(&noti)
+	if err := tx.Error; err != nil {
+		return noti, tx.Error
+	}
+	return noti, tx.Error
+}
+
 func GetNotifications(query Query, user model.User) ([]model.Notification, int64, error) {
 	var notis []model.Notification
 	tx := app.Database.DB.Model(&model.Notification{}).Where("notifications.user_id = ?", user.ID)

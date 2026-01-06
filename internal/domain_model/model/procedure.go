@@ -9,23 +9,23 @@ import (
 )
 
 type Procedure struct {
-	ID          int        `gorm:"primaryKey,autoIncrement" json:"id"`
-	AdminID     *uuid.UUID `json:"admin_id,omitempty"`
-	Admin       *Admin     `json:"admin,omitempty"`
-	Name        string     `json:"name"`
-	UpdateBy    string     `json:"update_by,omitempty"`
-	Description *string    `json:"description,omitempty"`
-	Cost        *float64   `json:"cost,omitempty"`
-	ExtraFeeID  *int       `json:"extra_fee_id,omitempty"`
-	ExtraFees   []ExtraFee `json:"extra_fees,omitempty"`
+	ID             int             `gorm:"primaryKey,autoIncrement" json:"id"`
+	AdminID        *uuid.UUID      `json:"admin_id,omitempty"`
+	Admin          *Admin          `json:"admin,omitempty"`
+	Name           string          `json:"name"`
+	UpdateBy       string          `json:"update_by,omitempty"`
+	Description    *string         `json:"description,omitempty"`
+	Cost           *float64        `json:"cost,omitempty"`
+	ExtraFeeID     *int            `json:"extra_fee_id,omitempty"`
+	ExtraFees      ExtraFee        `json:"extra_fees,omitempty"`
+	ProcedureSteps []ProcedureStep `json:"procedure_steps,omitempty"`
 
 	CreatedAt *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
 	DeletedAt *gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 
-	IsActive       *bool           `json:"is_active,omitempty" gorm:"default:true"`
-	DueDate        *int            `json:"due_date,omitempty"`
-	ProcedureSteps []ProcedureStep `json:"procedure_steps,omitempty"`
+	IsActive *bool `json:"is_active,omitempty" gorm:"default:true"`
+	DueDate  *int  `json:"due_date,omitempty"`
 }
 
 type ProcedureStep struct {
