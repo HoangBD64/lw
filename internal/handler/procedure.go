@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"core/internal/common/templates"
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
@@ -13,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -58,8 +60,11 @@ func AdminCreateProcedure(c *fiber.Ctx) error {
 		Type:     model.NOTIFICATION_PROCEDURE,
 		Metadata: metadata,
 	}
-	go repo.CreateNotification(c.Context(), notification)
 
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		_, err := repo.CreateNotification(ctx, notification)
+		return err
+	})
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: p})
 }
 
@@ -109,7 +114,11 @@ func AdminUpdateProcedure(c *fiber.Ctx) error {
 		Type:     model.NOTIFICATION_PROCEDURE,
 		Metadata: metadata,
 	}
-	go repo.CreateNotification(c.Context(), notification)
+
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		_, err := repo.CreateNotification(ctx, notification)
+		return err
+	})
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
@@ -224,7 +233,11 @@ func AdminBulkUpsertProcedure(c *fiber.Ctx) error {
 		Type:     model.NOTIFICATION_PROCEDURE,
 		Metadata: metadata,
 	}
-	go repo.CreateNotification(c.Context(), notification)
+
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		_, err := repo.CreateNotification(ctx, notification)
+		return err
+	})
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: savedProc})
 }
 
@@ -301,7 +314,11 @@ func AdminUpdateProcedureStep(c *fiber.Ctx) error {
 		Type:     model.NOTIFICATION_PROCEDURE,
 		Metadata: metadata,
 	}
-	go repo.CreateNotification(c.Context(), notification)
+
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		_, err := repo.CreateNotification(ctx, notification)
+		return err
+	})
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success"})
 }
 
@@ -466,7 +483,9 @@ func AdminUpdateUserProcedure(c *fiber.Ctx) error {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure steps failed", Error: err})
 		}
 
-		go SendMailToUser([]int{up.ID}, model.NOTI_PROCEDURE_CANCELLED)
+		utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+			return SendMailToUser([]int{up.ID}, model.NOTI_PROCEDURE_CANCELLED)
+		})
 	}
 	if err := repo.AdminUpdateUserProcedure(&up); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure failed", Error: err})
@@ -532,8 +551,11 @@ func AdminAssignUserProcedure(c *fiber.Ctx) error {
 		}
 		notifications = append(notifications, notification)
 	}
-	go repo.BulkCreateNotification(c.Context(), notifications)
 
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		_, err := repo.BulkCreateNotification(ctx, notifications)
+		return err
+	})
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &affected})
 }
 
@@ -666,8 +688,11 @@ func AdminUnassignUserProcedure(c *fiber.Ctx) error {
 		Type:     model.NOTIFICATION_PROCEDURE,
 		Metadata: metadata,
 	}
-	go repo.CreateNotification(c.Context(), notification)
 
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		_, err := repo.CreateNotification(ctx, notification)
+		return err
+	})
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &total})
 }
 
@@ -739,9 +764,13 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 
 		status := model.USER_PROCEDURE_ERROR
 		userProcedure.Status = &status
-		go repo.AdminUpdateUserProcedure(&userProcedure)
+		utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+			return repo.AdminUpdateUserProcedure(&userProcedure)
+		})
 		if ups.Status != model.USER_PROCEDURE_STEP_ERROR {
-			go SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_PROCEDURE_ERROR)
+			utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+				return SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_PROCEDURE_ERROR)
+			})
 		}
 	}
 	ups.Status = input.Status
@@ -792,7 +821,9 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 			}
 
 			if allDone {
-				go SendMailToUser([]int{userProcedureID}, model.NOTI_PROCEDURE_COMPLETED)
+				utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+					return SendMailToUser([]int{userProcedureID}, model.NOTI_PROCEDURE_COMPLETED)
+				})
 			}
 		}(ups.UserProcedureID)
 	}
@@ -951,7 +982,10 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 		Type:     model.NOTIFICATION_PROCEDURE,
 		Metadata: metadata,
 	}
-	go repo.CreateNotification(c.Context(), notification)
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		_, err := repo.CreateNotification(ctx, notification)
+		return err
+	})
 
 	if isCheckUserProcedureStatus {
 		userProcedure, err := repo.GetUserProcedureByID(ups.UserProcedureID)
@@ -968,7 +1002,9 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 		}
 		status := model.USER_PROCEDURE_PROCESSING
 		userProcedure.Status = &status
-		go repo.AdminUpdateUserProcedure(&userProcedure)
+		utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+			return repo.AdminUpdateUserProcedure(&userProcedure)
+		})
 	}
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: ups})

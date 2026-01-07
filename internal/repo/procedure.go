@@ -482,6 +482,9 @@ func UserGetUserProceduresByUser(userID uuid.UUID, q Query) ([]model.UserProcedu
 	if q.Search != "" {
 		tx = tx.Where("template_name ILIKE ? OR company_name ILIKE ? OR proc_number ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%", "%"+q.Search+"%")
 	}
+	if q.TemplateName != "" {
+		tx = tx.Where("template_name = ?", q.TemplateName)
+	}
 	tx = tx.Count(&count)
 	if tx.Error != nil {
 		return nil, 0, tx.Error

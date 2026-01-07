@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"core/app"
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
+	"core/utils"
 	"core/utils/base"
 	"errors"
 	"log/slog"
@@ -54,14 +56,18 @@ func VerifyUserSSO(c *fiber.Ctx) error {
 			if err != nil {
 				return c.JSON(base.BaseResponse{Status: false, Message: "Can't create user", Error: err})
 			}
-			go PreDefaultSettingsUser(current_user)
+			utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+				return PreDefaultSettingsUser(current_user)
+			})
 		} else {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Can't get user by sso id", Error: err})
 		}
 	} else {
 		if current_user.Name == "Visitor" && claims.User.DisplayName != "" && current_user.Name != claims.User.DisplayName {
 			current_user.Name = claims.User.DisplayName
-			go repo.UpdateUserDisplayName(current_user)
+			utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+				return repo.UpdateUserDisplayName(current_user)
+			})
 		}
 	}
 	claims_new := jwt.MapClaims{
@@ -92,7 +98,9 @@ func VerifyUserSSO(c *fiber.Ctx) error {
 	}
 	now := time.Now()
 	current_user.LastLogin = &now
-	go repo.UpdateUserLoginTime(current_user)
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		return repo.UpdateUserLoginTime(current_user)
+	})
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: userReturn})
 }
 

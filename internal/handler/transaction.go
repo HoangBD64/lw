@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
 	"core/pkg/payment"
@@ -475,7 +476,9 @@ func airwallexUpdateBalanceOrg(transaction model.Transaction, order_payment paym
 	}
 
 	if transaction.UserProcedureID != nil {
-		go SendMailToUser([]int{*transaction.UserProcedureID}, model.NOTI_INVOICE_COMPLETED)
+		utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+			return SendMailToUser([]int{*transaction.UserProcedureID}, model.NOTI_INVOICE_COMPLETED)
+		})
 	}
 	return nil
 }

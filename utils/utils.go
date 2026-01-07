@@ -2,9 +2,11 @@
 package utils
 
 import (
+	"context"
 	"core/app"
 	"crypto/rand"
 	"encoding/json"
+	"log/slog"
 	"math"
 	"math/big"
 	"time"
@@ -126,11 +128,11 @@ func RandomInt(max int) int {
 	return int(nBig.Int64())
 }
 
-func ToJSON (v any) ([]byte, error) {
+func ToJSON(v any) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func FromJSON (data []byte, v any) error {
+func FromJSON(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
 
@@ -139,4 +141,15 @@ func GetWebBaseURL() string {
 		return app.Config("WEB_BASE_URL")
 	}
 	return "https://legalswift.com"
+}
+
+func RunAsync(timeout time.Duration, fn func(ctx context.Context) error) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		if err := fn(ctx); err != nil {
+			slog.Error("async job failed", "err", err)
+		}
+	}()
 }

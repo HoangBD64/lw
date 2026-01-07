@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"core/app"
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
+	"core/utils"
 	"core/utils/base"
 	"encoding/json"
 	"errors"
@@ -89,7 +91,10 @@ func VerifyAdminSSO(c *fiber.Ctx) error {
 	}
 	now := time.Now()
 	current_admin.LastLogin = &now
-	go repo.UpdateAdminLoginTime(current_admin)
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		return repo.UpdateAdminLoginTime(current_admin)
+	})
+
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: adminReturn})
 }
 
