@@ -90,7 +90,7 @@ func MigrateDatabase(DB *gorm.DB) {
 		&model.ExtraFee{},
 	}
 
-	MigrateNotificationsMetadataToJSONB(DB)
+	// MigrateNotificationsMetadataToJSONB(DB)
 
 	if err := DB.AutoMigrate(migrations...); err != nil {
 		slog.Error("Database migration failed", "error", err)
@@ -171,53 +171,53 @@ func (l *slogLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	}
 }
 
-func MigrateNotificationsMetadataToJSONB(db *gorm.DB) error {
-	var currentType string
-	if err := db.Raw(`
-		SELECT data_type
-		FROM information_schema.columns
-		WHERE table_name = 'notifications' AND column_name = 'metadata'
-	`).Scan(&currentType).Error; err != nil {
-		return fmt.Errorf("check column type: %w", err)
-	}
+// func MigrateNotificationsMetadataToJSONB(db *gorm.DB) error {
+// 	var currentType string
+// 	if err := db.Raw(`
+// 		SELECT data_type
+// 		FROM information_schema.columns
+// 		WHERE table_name = 'notifications' AND column_name = 'metadata'
+// 	`).Scan(&currentType).Error; err != nil {
+// 		return fmt.Errorf("check column type: %w", err)
+// 	}
 
-	slog.Info("migration: notifications.metadata current type", "type", currentType)
+// 	slog.Info("migration: notifications.metadata current type", "type", currentType)
 
-	if currentType == "jsonb" || currentType == "json" {
-		slog.Info("migration: notifications.metadata already json/jsonb, skip")
-		return nil
-	}
+// 	if currentType == "jsonb" || currentType == "json" {
+// 		slog.Info("migration: notifications.metadata already json/jsonb, skip")
+// 		return nil
+// 	}
 
-	var invalidCount int64
-	if err := db.Raw(`
-		SELECT COUNT(*)
-		FROM notifications
-		WHERE metadata IS NOT NULL
-		  AND btrim(metadata) <> ''
-		  AND NOT (metadata ~ '^\s*(\{|\[)')  -- cheap precheck: should start with { or [
-	`).Scan(&invalidCount).Error; err != nil {
-		return fmt.Errorf("check invalid json precondition: %w", err)
-	}
-	if invalidCount > 0 {
-		return fmt.Errorf("migration blocked: %d rows look non-json (metadata not starting with { or [). Please clean data first", invalidCount)
-	}
+// 	var invalidCount int64
+// 	if err := db.Raw(`
+// 		SELECT COUNT(*)
+// 		FROM notifications
+// 		WHERE metadata IS NOT NULL
+// 		  AND btrim(metadata) <> ''
+// 		  AND NOT (metadata ~ '^\s*(\{|\[)')  -- cheap precheck: should start with { or [
+// 	`).Scan(&invalidCount).Error; err != nil {
+// 		return fmt.Errorf("check invalid json precondition: %w", err)
+// 	}
+// 	if invalidCount > 0 {
+// 		return fmt.Errorf("migration blocked: %d rows look non-json (metadata not starting with { or [). Please clean data first", invalidCount)
+// 	}
 
-	if err := db.Exec(`
-		UPDATE notifications
-		SET metadata = '{}'
-		WHERE metadata IS NOT NULL AND btrim(metadata) = ''
-	`).Error; err != nil {
-		return fmt.Errorf("normalize empty metadata: %w", err)
-	}
+// 	if err := db.Exec(`
+// 		UPDATE notifications
+// 		SET metadata = '{}'
+// 		WHERE metadata IS NOT NULL AND btrim(metadata) = ''
+// 	`).Error; err != nil {
+// 		return fmt.Errorf("normalize empty metadata: %w", err)
+// 	}
 
-	if err := db.Exec(`
-		ALTER TABLE notifications
-		ALTER COLUMN metadata TYPE jsonb
-		USING metadata::jsonb
-	`).Error; err != nil {
-		return fmt.Errorf("alter metadata to jsonb: %w", err)
-	}
+// 	if err := db.Exec(`
+// 		ALTER TABLE notifications
+// 		ALTER COLUMN metadata TYPE jsonb
+// 		USING metadata::jsonb
+// 	`).Error; err != nil {
+// 		return fmt.Errorf("alter metadata to jsonb: %w", err)
+// 	}
 
-	slog.Info("migration: notifications.metadata converted to jsonb successfully")
-	return nil
-}
+// 	slog.Info("migration: notifications.metadata converted to jsonb successfully")
+// 	return nil
+// }
