@@ -1,12 +1,15 @@
 package repo
 
 import (
-	"core/app"
-	"core/internal/domain_model/model"
 	"fmt"
 	"time"
 
+	"core/app"
+	"core/internal/domain_model/domain"
+	"core/internal/domain_model/model"
+
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 )
 
@@ -166,7 +169,7 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 		tx = tx.Where("procedure_id = ?", q.ProcedureID)
 	}
 	if q.Search != "" {
-		tx = tx.Where("template_name ILIKE ? OR company_name ILIKE ? OR proc_number ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%", "%"+q.Search+"%")
+		tx = tx.Where("template_name ILIKE ? OR company_name ILIKE ? OR proc_number ILIKE ? OR company_code ILIKE ?", "%"+q.Search+"%", "%"+q.Search+"%", "%"+q.Search+"%", "%"+q.Search+"%")
 	}
 	if q.IsHaveTicket != nil {
 		tx = tx.Where("is_have_ticket = ?", q.IsHaveTicket)
@@ -192,8 +195,8 @@ func AssignAdminToUserProcedures(userProcedureIDs []int, adminID uuid.UUID) (int
 	// if status is PENDING, change to PROCESSING, else keep current status
 	allowAssignStatuses := []string{
 		model.USER_PROCEDURE_PENDING,
-		model.USER_PROCEDURE_PROCESSING,
-		model.USER_PROCEDURE_ERROR,
+		model.USER_PROCEDURE_INFORMATION_REVIEW,
+		model.USER_PROCEDURE_INFORMATION_REQUIRED,
 	}
 
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
@@ -207,7 +210,7 @@ func AssignAdminToUserProcedures(userProcedureIDs []int, adminID uuid.UUID) (int
 				END
 			`,
 				model.USER_PROCEDURE_PENDING,
-				model.USER_PROCEDURE_PROCESSING,
+				model.USER_PROCEDURE_INFORMATION_REVIEW,
 			),
 		})
 
@@ -216,7 +219,7 @@ func AssignAdminToUserProcedures(userProcedureIDs []int, adminID uuid.UUID) (int
 			userProcedureIDs,
 			model.USER_PROCEDURE_PENDING,
 		).
-		Update("status", model.USER_PROCEDURE_STEP_PROCESSING)
+		Update("status", model.USER_PROCEDURE_STEP_INFORMATION_REVIEW)
 
 	return tx.RowsAffected, tx.Error
 }
@@ -447,17 +450,24 @@ func MarkUserProcedureHasTicket(userProcedureID int, has bool) error {
 }
 
 func CreateUserProcedure(userProcedure model.UserProcedure) (model.UserProcedure, error) {
-	tx := app.Database.DB.Create(&userProcedure)
-	if tx.Error != nil {
-		return userProcedure, tx.Error
-	}
-	procNumber := fmt.Sprintf("#LW%04d", userProcedure.ID)
-	userProcedure.ProcNumber = &procNumber
-	if err := app.Database.DB.Model(&model.UserProcedure{}).
-		Where("id = ?", userProcedure.ID).
-		Update("proc_number", procNumber).Error; err != nil {
+	if err := app.Database.DB.Create(&userProcedure).Error; err != nil {
 		return userProcedure, err
 	}
+	userProcedure.ProcNumber = fmt.Sprintf("#LW%04d", userProcedure.ID)
+
+	if userProcedure.PaymentAccount == nil || lo.FromPtr(userProcedure.PaymentAccount) == "" {
+		userProcedure.CompanyCode = fmt.Sprintf("#CC%04d", userProcedure.ID)
+	}
+
+	if err := app.Database.DB.Model(&model.UserProcedure{}).
+		Where("id = ?", userProcedure.ID).
+		Updates(map[string]interface{}{
+			"proc_number":  userProcedure.ProcNumber,
+			"company_code": userProcedure.CompanyCode,
+		}).Error; err != nil {
+		return userProcedure, err
+	}
+
 	return userProcedure, nil
 }
 
@@ -568,4 +578,125 @@ func MarkReminderSent(userProcedureID []int) error {
 			Where("id IN ?", userProcedureID).
 			Updates(map[string]any{"is_send_noti": true}).Error
 	})
+}
+
+func AdminMigrateStatus(dryRun bool) (domain.AdminMigrateStatusResponse, error) {
+	var response domain.AdminMigrateStatusResponse
+
+	if dryRun {
+		var userProcCount int64
+		err := app.Database.DB.Model(&model.UserProcedure{}).
+			Where("status IN ?", []string{"processing", "error"}).
+			Count(&userProcCount).Error
+		if err != nil {
+			return response, err
+		}
+
+		var userProcStepCount int64
+		err = app.Database.DB.Model(&model.UserProcedureStep{}).
+			Where("status IN ?", []string{"processing", "error"}).
+			Count(&userProcStepCount).Error
+		if err != nil {
+			return response, err
+		}
+
+		response.UserProceduresUpdated = userProcCount
+		response.UserProcedureStepsUpdated = userProcStepCount
+		response.Message = fmt.Sprintf("DRY RUN: Would update %d user procedures and %d user procedure steps", userProcCount, userProcStepCount)
+		return response, nil
+	}
+
+	tx := app.Database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Update UserProcedures: processing -> information-review
+	userProcResult1 := tx.Model(&model.UserProcedure{}).
+		Where("status = ?", "processing").
+		Update("status", model.USER_PROCEDURE_INFORMATION_REVIEW)
+	if userProcResult1.Error != nil {
+		tx.Rollback()
+		return response, userProcResult1.Error
+	}
+
+	// Update UserProcedures: error -> information-required
+	userProcResult2 := tx.Model(&model.UserProcedure{}).
+		Where("status = ?", "error").
+		Update("status", model.USER_PROCEDURE_INFORMATION_REQUIRED)
+	if userProcResult2.Error != nil {
+		tx.Rollback()
+		return response, userProcResult2.Error
+	}
+
+	// Update UserProcedureSteps: processing -> information-review
+	userStepResult1 := tx.Model(&model.UserProcedureStep{}).
+		Where("status = ?", "processing").
+		Update("status", model.USER_PROCEDURE_STEP_INFORMATION_REVIEW)
+	if userStepResult1.Error != nil {
+		tx.Rollback()
+		return response, userStepResult1.Error
+	}
+
+	// Update UserProcedureSteps: error -> information-required
+	userStepResult2 := tx.Model(&model.UserProcedureStep{}).
+		Where("status = ?", "error").
+		Update("status", model.USER_PROCEDURE_STEP_INFORMATION_REQUIRED)
+	if userStepResult2.Error != nil {
+		tx.Rollback()
+		return response, userStepResult2.Error
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return response, err
+	}
+
+	response.UserProceduresUpdated = userProcResult1.RowsAffected + userProcResult2.RowsAffected
+	response.UserProcedureStepsUpdated = userStepResult1.RowsAffected + userStepResult2.RowsAffected
+	response.Message = fmt.Sprintf("Successfully migrated %d user procedures and %d user procedure steps",
+		response.UserProceduresUpdated, response.UserProcedureStepsUpdated)
+
+	return response, nil
+}
+
+func CountUserProceduresByStatus(userID uuid.UUID, query Query) (map[string]int64, error) {
+	statuses := []string{
+		model.USER_PROCEDURE_INFORMATION_REQUIRED,
+		model.USER_PROCEDURE_INFORMATION_REVIEW,
+		model.USER_PROCEDURE_PENDING,
+		model.USER_PROCEDURE_COMPLETED,
+	}
+
+	result := map[string]int64{
+		model.USER_PROCEDURE_INFORMATION_REQUIRED: 0,
+		model.USER_PROCEDURE_INFORMATION_REVIEW:   0,
+		model.USER_PROCEDURE_PENDING:              0,
+		model.USER_PROCEDURE_COMPLETED:            0,
+	}
+
+	type row struct {
+		Status string
+		Count  int64
+	}
+
+	var rows []row
+	tx := app.Database.DB.Model(&model.UserProcedure{}).
+		Select("status, COUNT(*) as count").
+		Where("user_id = ? AND status IN ?", userID, statuses)
+
+	if query.StartTime != nil && query.EndTime != nil {
+		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
+	}
+	tx = tx.Group("status").Scan(&rows)
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	for _, r := range rows {
+		result[r.Status] = r.Count
+	}
+
+	return result, nil
 }

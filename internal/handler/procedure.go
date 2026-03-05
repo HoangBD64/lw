@@ -531,8 +531,8 @@ func AdminAssignUserProcedure(c *fiber.Ctx) error {
 	itemNumber := ""
 	for _, upID := range input.UserProcedureID {
 		upItem, _ := repo.GetUserProcedureByID(upID)
-		if upItem.ProcNumber != nil && *upItem.ProcNumber != "" {
-			itemNumber = *upItem.ProcNumber
+		if upItem.ProcNumber != "" {
+			itemNumber = upItem.ProcNumber
 			ids = append(ids, itemNumber)
 		} else {
 			itemNumber = strconv.Itoa(upID)
@@ -580,22 +580,27 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 		case model.NOTI_PROCEDURE_ERROR:
 			subject = fmt.Sprintf("Procedure Issue Detected: %s", up.TemplateName)
 			tmpl = templates.MailTemplateProcedureError
-			contentNoti = fmt.Sprintf("Procedure <strong>%s</strong> has an error. Please review the changes.", lo.FromPtr(up.ProcNumber))
+			contentNoti = fmt.Sprintf("Procedure <strong>%s</strong> has an error. Please review the changes.", up.ProcNumber)
 
 		case model.NOTI_PROCEDURE_COMPLETED:
 			subject = fmt.Sprintf("Procedure Completed: %s", up.TemplateName)
 			tmpl = templates.MailTemplateProcedureCompleted
-			contentNoti = fmt.Sprintf("Procedure <strong>%s</strong> has been completed.", lo.FromPtr(up.ProcNumber))
+			contentNoti = fmt.Sprintf("Procedure <strong>%s</strong> has been completed.", up.ProcNumber)
 
 		case model.NOTI_INVOICE_COMPLETED:
 			subject = fmt.Sprintf("Payment Confirmed: %s", up.TemplateName)
 			tmpl = templates.MailTemplateInvoiceCompleted
-			contentNoti = fmt.Sprintf("Payment for Procedure <strong>%s</strong> has been confirmed.", lo.FromPtr(up.ProcNumber))
+			contentNoti = fmt.Sprintf("Payment for Procedure <strong>%s</strong> has been confirmed.", up.ProcNumber)
 
 		case model.NOTI_PROCEDURE_CANCELLED:
 			subject = fmt.Sprintf("Procedure Cancelled: %s", up.TemplateName)
 			tmpl = templates.MailTemplateProcedureCancelled
-			contentNoti = fmt.Sprintf("Your procedure <strong>%s</strong> has been cancelled.", lo.FromPtr(up.ProcNumber))
+			contentNoti = fmt.Sprintf("Your procedure <strong>%s</strong> has been cancelled.", up.ProcNumber)
+
+		case model.NOTI_USER_REGISTRATION_COMPLETED:
+			subject = fmt.Sprintf("Registration Completed: %s", up.TemplateName)
+			tmpl = templates.MailTemplateUserRegistrationCompleted
+			contentNoti = fmt.Sprintf("Registration for procedure <strong>%s</strong> has been completed successfully.", up.ProcNumber)
 
 		default:
 			slog.Error("Unknown mail type", "mail_type", mailType)
@@ -606,8 +611,12 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 		if up.DueDate != nil {
 			dueDays = *up.DueDate
 		}
+		// get cost from transaction if exists, otherwise use cost from procedure template
 		cost := 0.0
-		if up.Cost != nil {
+		tran, _ := repo.GetLatestTransactionByUserProcedureID(up.ID)
+		if tran != nil && tran.AmountDeposit != 0 {
+			cost = tran.AmountDeposit
+		} else if up.Cost != nil {
 			cost = *up.Cost
 		}
 		status := ""
@@ -623,7 +632,7 @@ func SendMailToUser(UserProcedureIDs []int, mailType string) error {
 			Status:              status,
 			DueDays:             dueDays,
 			Cost:                fmt.Sprintf("$%.2f", cost),
-			UserProcedureNumber: lo.FromPtr(up.ProcNumber),
+			UserProcedureNumber: up.ProcNumber,
 			URL:                 websiteURL,
 		}
 
@@ -673,8 +682,8 @@ func AdminUnassignUserProcedure(c *fiber.Ctx) error {
 	ids := make([]string, 0, len(input.UserProcedureID))
 	for _, upID := range input.UserProcedureID {
 		upItem, _ := repo.GetUserProcedureByID(upID)
-		if upItem.ProcNumber != nil && *upItem.ProcNumber != "" {
-			ids = append(ids, *upItem.ProcNumber)
+		if upItem.ProcNumber != "" {
+			ids = append(ids, upItem.ProcNumber)
 		} else {
 			ids = append(ids, strconv.Itoa(upID))
 		}
@@ -758,16 +767,16 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 	}
 	ups.Notes = input.Notes
 	ups.FeedBack = input.FeedBack
-	if input.Status == model.USER_PROCEDURE_STEP_ERROR {
+	if input.Status == model.USER_PROCEDURE_STEP_INFORMATION_REQUIRED {
 		UserUpdatedFalse := false
 		ups.UserUpdated = &UserUpdatedFalse
 
-		status := model.USER_PROCEDURE_ERROR
+		status := model.USER_PROCEDURE_INFORMATION_REQUIRED
 		userProcedure.Status = &status
 		utils.RunAsync(3*time.Second, func(ctx context.Context) error {
 			return repo.AdminUpdateUserProcedure(&userProcedure)
 		})
-		if ups.Status != model.USER_PROCEDURE_STEP_ERROR {
+		if ups.Status != model.USER_PROCEDURE_STEP_INFORMATION_REQUIRED {
 			utils.RunAsync(3*time.Second, func(ctx context.Context) error {
 				return SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_PROCEDURE_ERROR)
 			})
@@ -794,7 +803,7 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 				if s.Status != model.USER_PROCEDURE_STEP_DONE {
 					allDone = false
 				}
-				if s.Status == model.USER_PROCEDURE_STEP_ERROR {
+				if s.Status == model.USER_PROCEDURE_STEP_INFORMATION_REQUIRED {
 					anyError = true
 				}
 			}
@@ -809,10 +818,10 @@ func AdminUpdateUserProcedureStep(c *fiber.Ctx) error {
 				status := model.USER_PROCEDURE_COMPLETED
 				up.Status = &status
 			} else if anyError {
-				status := model.USER_PROCEDURE_ERROR
+				status := model.USER_PROCEDURE_INFORMATION_REQUIRED
 				up.Status = &status
 			} else {
-				status := model.USER_PROCEDURE_PROCESSING
+				status := model.USER_PROCEDURE_INFORMATION_REVIEW
 				up.Status = &status
 			}
 
@@ -945,7 +954,7 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 
 	allowStatus := []string{
 		model.USER_PROCEDURE_STEP_PENDING,
-		model.USER_PROCEDURE_STEP_ERROR,
+		model.USER_PROCEDURE_STEP_INFORMATION_REQUIRED,
 	}
 	if !slices.Contains(allowStatus, ups.Status) && !lo.FromPtr(input.UserCompleted) {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Status not allowed"})
@@ -956,10 +965,10 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 	}
 	ups.Data = input.Data
 	isCheckUserProcedureStatus := false
-	if ups.Status == model.USER_PROCEDURE_STEP_ERROR {
+	if ups.Status == model.USER_PROCEDURE_STEP_INFORMATION_REQUIRED {
 		UserUpdatedFalse := false
 		ups.UserUpdated = &UserUpdatedFalse
-		ups.Status = model.USER_PROCEDURE_STEP_PROCESSING
+		ups.Status = model.USER_PROCEDURE_STEP_INFORMATION_REVIEW
 		isCheckUserProcedureStatus = true
 	}
 	ups.UserCompleted = input.UserCompleted
@@ -967,14 +976,19 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Update user procedure step failed", Error: err})
 	}
 
-	procNum := lo.FromPtr(up.ProcNumber)
-	if procNum == "" {
-		procNum = fmt.Sprintf("%d", up.ID)
+	if input.UserCompleted != nil && *input.UserCompleted && ups.Position == 1 {
+		utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+			return SendMailToUser([]int{ups.UserProcedureID}, model.NOTI_USER_REGISTRATION_COMPLETED)
+		})
+	}
+
+	if up.ProcNumber == "" {
+		up.ProcNumber = fmt.Sprintf("LW%04d", up.ID)
 	}
 
 	metadata := model.NotiMetadata{
 		UserProcedureID: lo.ToPtr(ups.UserProcedureID),
-		Content:         lo.ToPtr(fmt.Sprintf("Step %s in procedure %s has been updated.", ups.Name, procNum)),
+		Content:         lo.ToPtr(fmt.Sprintf("Step %s in procedure %s has been updated.", ups.Name, up.ProcNumber)),
 	}
 	notification := model.Notification{
 		AdminID:  up.AdminID,
@@ -996,11 +1010,11 @@ func UserUpdateUserProcedureStep(c *fiber.Ctx) error {
 			if step.ID == ups.ID {
 				continue
 			}
-			if step.Status == model.USER_PROCEDURE_STEP_ERROR {
+			if step.Status == model.USER_PROCEDURE_STEP_INFORMATION_REQUIRED {
 				return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: ups})
 			}
 		}
-		status := model.USER_PROCEDURE_PROCESSING
+		status := model.USER_PROCEDURE_INFORMATION_REVIEW
 		userProcedure.Status = &status
 		utils.RunAsync(3*time.Second, func(ctx context.Context) error {
 			return repo.AdminUpdateUserProcedure(&userProcedure)
@@ -1022,4 +1036,35 @@ func UserGetUserProcedureSteps(c *fiber.Ctx) error {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Get user procedure steps failed", Error: err})
 	}
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: ups, Total: &total})
+}
+
+func AdminMigrateStatus(c *fiber.Ctx) error {
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
+
+	// Only allow admin or owner to perform migration
+	if !admin.IsAdmin() && !admin.IsOwner {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Not authorized to perform migration"})
+	}
+
+	var input domain.AdminMigrateStatusRequest
+	if err := c.BodyParser(&input); err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
+	}
+
+	result, err := repo.AdminMigrateStatus(input.DryRun)
+	if err != nil {
+		slog.Error("Migration failed", "error", err, "admin_id", admin.ID, "dry_run", input.DryRun)
+		return c.JSON(base.BaseResponse{Status: false, Message: "Migration failed", Error: err})
+	}
+
+	slog.Info("Status migration completed",
+		"admin_id", admin.ID,
+		"dry_run", input.DryRun,
+		"user_procedures_updated", result.UserProceduresUpdated,
+		"user_procedure_steps_updated", result.UserProcedureStepsUpdated)
+
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: result})
 }

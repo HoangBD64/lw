@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"core/internal/domain_model/model"
+
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
@@ -152,4 +154,22 @@ type AdminUserUpdateProcedureStepRequest struct {
 	Notes         string         `json:"notes"`
 	Status        string         `json:"status"`
 	UserCompleted *bool          `json:"user_completed,omitempty"`
+}
+
+// GroupedUserProcedure represents grouped user procedures by company_code
+type GroupedUserProcedure struct {
+	model.UserProcedure
+	PaymentAccounts []model.UserProcedure `json:"payment_accounts,omitempty"`
+}
+
+// AdminMigrateStatusRequest represents request to migrate status
+type AdminMigrateStatusRequest struct {
+	DryRun bool `json:"dry_run"` // If true, only return count without updating
+}
+
+// AdminMigrateStatusResponse represents response for status migration
+type AdminMigrateStatusResponse struct {
+	UserProceduresUpdated     int64  `json:"user_procedures_updated"`
+	UserProcedureStepsUpdated int64  `json:"user_procedure_steps_updated"`
+	Message                   string `json:"message"`
 }

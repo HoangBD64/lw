@@ -6,22 +6,24 @@ import (
 )
 
 type Transaction struct {
-	Model           `gorm:"embedded"`
-	Type            string         `json:"type" gorm:"index"`
-	PaymentType     string         `json:"payment_type"`
-	Amount          float64        `json:"amount"`         // total amount procedure need to pay
-	AmountDeposit   float64        `json:"amount_deposit"` // amount user deposit
-	OrderPaymentID  string         `json:"order_payment_id"`
-	Status          string         `json:"status,omitempty" gorm:"index"`
-	UserID          *uuid.UUID     `json:"user_id,omitempty"`
-	User            *User          `json:"user,omitempty"`
-	AdminID         *uuid.UUID     `json:"admin_id,omitempty"`
-	Admin           *Admin         `json:"admin,omitempty"`
-	Metadata        datatypes.JSON `json:"metadata"`
-	Note            string         `json:"note"`
-	UserProcedureID *int           `json:"user_procedure_id,omitempty"`
-	UserProcedure   *UserProcedure `json:"user_procedure,omitempty"`
-	ProcedureID     *int           `json:"procedure_id,omitempty"`
+	Model             `gorm:"embedded"`
+	Type              string         `json:"type" gorm:"index"`
+	PaymentType       string         `json:"payment_type"`
+	Amount            float64        `json:"amount"`         // total amount procedure need to pay
+	AmountDeposit     float64        `json:"amount_deposit"` // amount user deposit
+	OrderPaymentID    string         `json:"order_payment_id"`
+	Status            string         `json:"status,omitempty" gorm:"index"`
+	UserID            *uuid.UUID     `json:"user_id,omitempty"`
+	User              *User          `json:"user,omitempty"`
+	AdminID           *uuid.UUID     `json:"admin_id,omitempty"`
+	Admin             *Admin         `json:"admin,omitempty"`
+	Metadata          datatypes.JSON `json:"metadata"`
+	Note              string         `json:"note"`
+	UserProcedureID   *int           `json:"user_procedure_id,omitempty"`
+	UserProcedure     *UserProcedure `json:"user_procedure,omitempty"`
+	ProcedureID       *int           `json:"procedure_id,omitempty"`
+	TransactionNumber string         `json:"transaction_number"`
+	IDInt             int64          `json:"id_int" gorm:"column:id_int;autoIncrement"`
 }
 
 const (
@@ -29,7 +31,7 @@ const (
 )
 
 const ( //status
-	COMPLETED = "completed"
+	TRANSACTION_COMPLETED = "completed"
 )
 
 type PaymentHistory struct {

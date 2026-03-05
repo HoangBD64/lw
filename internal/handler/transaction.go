@@ -218,11 +218,12 @@ func InitPayment(c *fiber.Ctx) error {
 }
 
 type FinishBody struct {
-	OrderID        string  `json:"order_id"`
-	State          string  `json:"state"`
-	CompanyName    string  `json:"company_name"`
-	CompanyType    string  `json:"company_type"`
-	PaymentAccount *string `json:"payment_account"`
+	OrderID         string  `json:"order_id"`
+	State           string  `json:"state"`
+	CompanyName     string  `json:"company_name"`
+	CompanyType     string  `json:"company_type"`
+	UserProcedureID *int    `json:"user_procedure_id"`
+	PaymentAccount  *string `json:"payment_account"`
 }
 
 func FinishPayment(c *fiber.Ctx) error {
@@ -337,6 +338,8 @@ func FinishPayment(c *fiber.Ctx) error {
 }
 
 func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body FinishBody) (model.UserProcedure, error) {
+	var userProc model.UserProcedure
+	var companyName, companyType, companyCode string
 	procedure_template, err := repo.UserGetProcedureByID(lo.FromPtr(transaction.ProcedureID))
 	if err != nil {
 		slog.Debug("Error get ProcedureTemplateByID", "err", err)
@@ -355,11 +358,19 @@ func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body Fin
 	isHaveTicket := false
 	var paymentAccount *string
 	if body.PaymentAccount != nil && *body.PaymentAccount != "" {
+		userProc, _ = repo.GetUserProcedureByID(lo.FromPtr(body.UserProcedureID))
 		paymentAccount = lo.ToPtr(strings.ToLower(*body.PaymentAccount))
+		companyCode = userProc.CompanyCode
+		companyName = lo.FromPtr(userProc.CompanyName)
+		companyType = lo.FromPtr(userProc.CompanyType)
+	} else {
+		companyName = body.CompanyName
+		companyType = body.CompanyType
 	}
 	new_user_procedure := model.UserProcedure{
 		UserID:         transaction.UserID,
 		ProcedureID:    procedure_template.ID,
+		CompanyCode:    companyCode,
 		TemplateName:   procedure_template.Name,
 		Cost:           procedure_template.Cost,
 		DueDate:        procedure_template.DueDate,
@@ -367,8 +378,8 @@ func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body Fin
 		Title:          &title,
 		IsHaveTicket:   &isHaveTicket,
 		State:          &body.State,
-		CompanyName:    &body.CompanyName,
-		CompanyType:    &body.CompanyType,
+		CompanyName:    &companyName,
+		CompanyType:    &companyType,
 		DeadlineAt:     deadlineAt,
 		PaymentAccount: paymentAccount,
 	}
@@ -469,7 +480,7 @@ func airwallexUpdateBalanceOrg(transaction model.Transaction, order_payment paym
 		return err
 	}
 	transaction.Metadata = json_history_json
-	transaction.Status = model.COMPLETED
+	transaction.Status = model.TRANSACTION_COMPLETED
 	_, err = repo.UpdateTransaction(transaction)
 	if err != nil {
 		return err
@@ -496,7 +507,7 @@ func paypalUpdateBalanceOrg(transaction model.Transaction, capture paypal.Captur
 		}
 	}
 	if capture.Status == "COMPLETED" {
-		transaction.Status = model.COMPLETED
+		transaction.Status = model.TRANSACTION_COMPLETED
 	} else {
 		transaction.Status = capture.Status
 	}
@@ -528,7 +539,7 @@ func paypalUpdateBalanceOrg(transaction model.Transaction, capture paypal.Captur
 		return err
 	}
 
-	if transaction.Status == model.COMPLETED && transaction.UserProcedureID != nil {
+	if transaction.Status == model.TRANSACTION_COMPLETED && transaction.UserProcedureID != nil {
 		go SendMailToUser([]int{*transaction.UserProcedureID}, model.NOTI_INVOICE_COMPLETED)
 	}
 	return nil

@@ -44,8 +44,8 @@ func (j *DeadlineReminderJob) Run(ctx context.Context) error {
 		}
 		deadlineStr := up.DeadlineAt.Format("2006-01-02")
 		procNumber := ""
-		if up.ProcNumber != nil {
-			procNumber = *up.ProcNumber
+		if up.ProcNumber != "" {
+			procNumber = up.ProcNumber
 		}
 		title := fmt.Sprintf("Upcoming deadline in 2 days: %s", procNumber)
 

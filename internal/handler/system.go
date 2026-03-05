@@ -413,6 +413,21 @@ func AdminTestSendMail(c *fiber.Ctx) error {
 		} else {
 			return c.JSON(base.BaseResponse{Status: false, Message: "failed to render template", Error: err})
 		}
+	case "user_registration_completed":
+		subject = "Registration Completed: Company Registration<<LegalSwift Mail Test>>"
+		fake := templates.DeadlineReminderData{
+			UserName:            "Jane Doe",
+			ProcedureName:       "Company Registration",
+			CompanyName:         "ACME LLC",
+			Status:              "Registration Completed",
+			UserProcedureNumber: "#LW0001",
+			URL:                 utils.GetWebBaseURL(),
+		}
+		if html, err := templates.RenderMailTemplate(templates.MailTemplateUserRegistrationCompleted, fake); err == nil {
+			content = html
+		} else {
+			return c.JSON(base.BaseResponse{Status: false, Message: "failed to render template", Error: err})
+		}
 	default:
 		// test mail procedure template
 		subject = "Procedure Completed: Company Registration<<LegalSwift Mail Test>>"

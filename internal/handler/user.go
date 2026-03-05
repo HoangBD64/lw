@@ -2,21 +2,22 @@ package handler
 
 import (
 	"context"
+	"errors"
+	"strings"
+	"time"
+
 	"core/app"
 	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
 	"core/utils"
 	"core/utils/base"
-	"errors"
-	"log/slog"
-	"strings"
-	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/casdoor/casdoor-go-sdk/casdoorsdk"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -131,7 +132,6 @@ func UpdateUserInfo(c *fiber.Ctx) error {
 	}
 	var input domain.UpdateUserInfoRequest
 	if err := c.BodyParser(&input); err != nil {
-		slog.Debug("Failed to parse input", "error", err)
 		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
 	}
 	user.Name = input.Name
@@ -150,7 +150,6 @@ func UpdateUserInfo(c *fiber.Ctx) error {
 func AdminUpdateUser(c *fiber.Ctx) error {
 	var input domain.AdminUpdateUserRequest
 	if err := c.BodyParser(&input); err != nil {
-		slog.Error("Failed to parse AdminUpdateUser body", "error", err)
 		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
 	}
 	if input.ID == uuid.Nil {
@@ -199,7 +198,6 @@ func AdminUpdateUserStatus(c *fiber.Ctx) error {
 	query.IDS = input.IDS
 	list_user, err := repo.GetUsersByAdmin(c.Context(), query)
 	if err != nil {
-		slog.Error("Can't GetUsers", "error", err)
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetUsers", Error: err})
 	}
 	if len(list_user) != len(input.IDS) {
@@ -211,4 +209,26 @@ func AdminUpdateUserStatus(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Total: &row_change})
+}
+
+func UserDashboard(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(model.User)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again"})
+	}
+
+	var query repo.Query
+	query.Parse(c)
+
+	counts, err := repo.CountUserProceduresByStatus(user.ID, query)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Failed to get dashboard", Error: err})
+	}
+	resp := domain.UserDashboardResponse{
+		InformationRequired: counts[model.USER_PROCEDURE_INFORMATION_REQUIRED],
+		InformationReview:   counts[model.USER_PROCEDURE_INFORMATION_REVIEW],
+		Pending:             counts[model.USER_PROCEDURE_PENDING],
+		Completed:           counts[model.USER_PROCEDURE_COMPLETED],
+	}
+	return c.JSON(base.BaseResponse{Status: true, Data: resp})
 }

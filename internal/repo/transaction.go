@@ -4,6 +4,7 @@ import (
 	"context"
 	"core/app"
 	"core/internal/domain_model/model"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -11,14 +12,27 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreateTransaction(ctx context.Context, newTransaction model.Transaction) (model.Transaction, error) {
-	tx := app.Database.DB.Create(&newTransaction)
+func CreateTransaction(ctx context.Context, t model.Transaction) (model.Transaction, error) {
+	db := app.Database.DB.WithContext(ctx)
 
-	if err := tx.Error; err != nil {
-		return newTransaction, tx.Error
-	}
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&t).Error; err != nil {
+			return err
+		}
 
-	return newTransaction, nil
+		number := fmt.Sprintf("#TS%04d", t.IDInt)
+
+		if err := tx.Model(&model.Transaction{}).
+			Where("id = ?", t.ID).
+			Update("transaction_number", number).Error; err != nil {
+			return err
+		}
+
+		t.TransactionNumber = number
+		return nil
+	})
+
+	return t, err
 }
 
 func UpdateTransaction(pay_his model.Transaction) (model.Transaction, error) {
@@ -41,7 +55,7 @@ func GetTransaction(query Query, user model.User) ([]model.Transaction, int64, e
 	var pays []model.Transaction
 	tx := app.Database.DB.Model(&model.Transaction{}).Where("user_id = ?", user.ID).
 		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "proc_number")
+			return db.Select("id", "proc_number", "company_name", "company_code", "state")
 		})
 	if query.Search != "" {
 		tx = tx.Where(`
@@ -110,7 +124,9 @@ func AdminGetTransaction(query Query) ([]model.Transaction, int64, error) {
 	tx := app.Database.DB.Model(&model.Transaction{}).
 		Preload("User", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "name", "email", "status") }).
 		Preload("Admin", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "name", "email", "status", "role") }).
-		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB { return db.Select("id", "proc_number") })
+		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "proc_number", "company_name", "company_code", "state")
+		})
 	if query.Search != "" {
 		tx = tx.Where(`
 			order_payment_id = ?
@@ -176,4 +192,13 @@ func UpdateTransactionMetadata(ctx context.Context, id uuid.UUID, metadata datat
 	}
 
 	return nil
+}
+
+func GetLatestTransactionByUserProcedureID(userProcedureID int) (*model.Transaction, error) {
+	var transaction model.Transaction
+	tx := app.Database.DB.Model(&model.Transaction{}).Where("user_procedure_id = ? AND status = ?", userProcedureID, model.TRANSACTION_COMPLETED).Order("created_at DESC").First(&transaction)
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	return &transaction, nil
 }

@@ -30,6 +30,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.10 // indirect
+	github.com/go-gormigrate/gormigrate/v2 v2.1.5 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/gosimple/slug v1.15.0 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
@@ -94,5 +95,5 @@ require (
 	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	gorm.io/datatypes v1.2.5
-	gorm.io/gorm v1.25.12
+	gorm.io/gorm v1.26.1
 )

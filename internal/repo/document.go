@@ -39,92 +39,143 @@ func AdminUpdateDocument(doc *model.Document, adminID uuid.UUID) error {
 
 func AdminGetDocuments(q Query) ([]model.Document, int64, error) {
 	var (
-		items []model.Document
-		count int64
+		items             []model.Document
+		companyCodes      []string
+		totalCompanyCodes int64
 	)
-	tx := app.Database.DB.Model(&model.Document{}).
-		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "proc_number")
-		})
+
+	// Base query để lấy distinct company code
+	companyQuery := app.Database.DB.Table("user_procedures").
+		Select("DISTINCT company_code").
+		Where("company_code IS NOT NULL AND company_code != ''")
+
 	if q.AdminID != nil {
-		sub := app.Database.DB.
-			Model(&model.UserProcedure{}).
-			Select("id").
-			Where("admin_id = ?", q.AdminID)
-		tx = tx.Where("user_procedure_id IN (?)", sub)
+		companyQuery = companyQuery.Where("admin_id = ?", q.AdminID)
 	}
 
+	// Apply search filter cho company code query
 	if q.Search != "" {
 		like := "%" + q.Search + "%"
-		tx = tx.Where(`
-        documents.name ILIKE ?
-        OR documents.file_type ILIKE ?
-        OR EXISTS (
-            SELECT 1
-            FROM user_procedures up
-            WHERE up.id = documents.user_procedure_id
-              AND up.proc_number ILIKE ?
-        )`, like, like, like)
+		companyQuery = companyQuery.Where(`
+			user_procedures.proc_number ILIKE ? 
+			OR user_procedures.company_code ILIKE ?
+			OR EXISTS (
+				SELECT 1 FROM documents d 
+				WHERE d.user_procedure_id = user_procedures.id 
+				AND (d.name ILIKE ? OR d.file_type ILIKE ?)
+			)`, like, like, like, like)
 	}
 
+	// Count total company codes
+	if err := companyQuery.Count(&totalCompanyCodes).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated company codes
+	offset := (q.Page - 1) * q.Limit
+	if err := companyQuery.
+		Order("company_code ASC").
+		Limit(q.Limit).
+		Offset(offset).
+		Pluck("company_code", &companyCodes).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if len(companyCodes) == 0 {
+		return []model.Document{}, totalCompanyCodes, nil
+	}
+
+	// Get all documents for the selected company codes
+	tx := app.Database.DB.Model(&model.Document{}).
+		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "proc_number", "company_code", "payment_account")
+		}).
+		Joins("JOIN user_procedures up ON documents.user_procedure_id = up.id").
+		Where("up.company_code IN ?", companyCodes)
+
+	if q.AdminID != nil {
+		tx = tx.Where("up.admin_id = ?", q.AdminID)
+	}
+	if q.UserProcedureID != nil {
+		tx = tx.Where("documents.user_procedure_id = ?", q.UserProcedureID)
+	}
 	if q.Type != "" {
-		tx = tx.Where("type = ?", q.Type)
+		tx = tx.Where("documents.type = ?", q.Type)
 	}
 	if q.UserID != nil {
-		tx = tx.Where("user_id = ?", q.UserID)
+		tx = tx.Where("documents.user_id = ?", q.UserID)
 	}
 	if q.StartTime != nil && q.EndTime != nil {
-		tx = tx.Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime)
+		tx = tx.Where("documents.created_at >= ? AND documents.created_at <= ?", q.StartTime, q.EndTime)
 	}
-	tx = tx.Count(&count)
-	if tx.Error != nil {
-		return nil, 0, tx.Error
-	}
-	tx = tx.Scopes(pagination(q.Page, q.Limit)).Order("created_at DESC").Find(&items)
-	return items, count, nil
+
+	// Order by company_code then by created_at
+	tx = tx.Order("up.company_code ASC, documents.created_at DESC").Find(&items)
+	return items, totalCompanyCodes, tx.Error
 }
 
 func UserGetDocuments(q Query) ([]model.Document, int64, error) {
 	var (
-		userDocuments []model.Document
-		count         int64
+		userDocuments     []model.Document
+		companyCodes      []string
+		totalCompanyCodes int64
 	)
-	sub := app.Database.DB.
-		Model(&model.UserProcedure{}).
-		Select("id").
-		Where("user_id = ?", q.UserID)
 
-	tx := app.Database.DB.Model(&model.Document{}).
-		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "proc_number")
-		}).
-		Where("user_procedure_id IN (?)", sub)
+	companyQuery := app.Database.DB.Table("user_procedures").
+		Select("DISTINCT company_code").
+		Where("user_id = ? AND company_code IS NOT NULL AND company_code != ''", q.UserID)
 
 	if q.Search != "" {
 		like := "%" + q.Search + "%"
-		tx = tx.Where(`
-        documents.name ILIKE ?
-        OR documents.file_type ILIKE ?
-        OR EXISTS (
-            SELECT 1
-            FROM user_procedures up
-            WHERE up.id = documents.user_procedure_id
-              AND up.proc_number ILIKE ?
-        )`, like, like, like)
+		companyQuery = companyQuery.Where(`
+			user_procedures.proc_number ILIKE ? 
+			OR user_procedures.company_code ILIKE ?
+			OR EXISTS (
+				SELECT 1 FROM documents d 
+				WHERE d.user_procedure_id = user_procedures.id 
+				AND (d.name ILIKE ? OR d.file_type ILIKE ?)
+			)`, like, like, like, like)
 	}
 
+	// Count total company codes
+	if err := companyQuery.Count(&totalCompanyCodes).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated company codes
+	offset := (q.Page - 1) * q.Limit
+	if err := companyQuery.
+		Order("company_code ASC").
+		Limit(q.Limit).
+		Offset(offset).
+		Pluck("company_code", &companyCodes).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if len(companyCodes) == 0 {
+		return []model.Document{}, totalCompanyCodes, nil
+	}
+
+	// Get all documents for the selected company codes
+	tx := app.Database.DB.Model(&model.Document{}).
+		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "proc_number", "company_code", "payment_account")
+		}).
+		Joins("JOIN user_procedures up ON documents.user_procedure_id = up.id").
+		Where("up.user_id = ? AND up.company_code IN ?", q.UserID, companyCodes)
+
+	if q.UserProcedureID != nil {
+		tx = tx.Where("documents.user_procedure_id = ?", q.UserProcedureID)
+	}
 	if q.Type != "" {
-		tx = tx.Where("type = ?", q.Type)
+		tx = tx.Where("documents.type = ?", q.Type)
 	}
 	if q.StartTime != nil && q.EndTime != nil {
-		tx = tx.Where("created_at >= ? AND created_at <= ?", q.StartTime, q.EndTime)
+		tx = tx.Where("documents.created_at >= ? AND documents.created_at <= ?", q.StartTime, q.EndTime)
 	}
-	tx = tx.Count(&count)
-	if tx.Error != nil {
-		return nil, 0, tx.Error
-	}
-	tx = tx.Scopes(pagination(q.Page, q.Limit)).Order("created_at DESC").Find(&userDocuments)
-	return userDocuments, count, tx.Error
+
+	tx = tx.Order("up.company_code ASC, documents.created_at DESC").Find(&userDocuments)
+	return userDocuments, totalCompanyCodes, tx.Error
 }
 
 func UserCreateDocument(doc model.Document) (model.Document, error) {

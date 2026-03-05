@@ -79,7 +79,8 @@ type UserProcedure struct {
 	AdminID             *uuid.UUID          `json:"admin_id,omitempty"`
 	Admin               *Admin              `json:"admin,omitempty"`
 	TemplateName        string              `json:"template_name,omitempty"`
-	ProcNumber          *string             `json:"proc_number,omitempty" gorm:"index"`
+	CompanyCode         string              `json:"company_code,omitempty"`
+	ProcNumber          string              `json:"proc_number,omitempty" gorm:"index"`
 	State               *string             `json:"state,omitempty"`
 	IsHaveTicket        *bool               `json:"is_have_ticket,omitempty"`
 	IsSendNoti          *bool               `json:"is_send_noti,omitempty" gorm:"default:false"`
@@ -104,18 +105,18 @@ type UserProcedure struct {
 const (
 	PROCEDURE_STEP_TODO = "todo"
 
-	USER_PROCEDURE_CREATED    = "created"
-	USER_PROCEDURE_PENDING    = "pending"
-	USER_PROCEDURE_PROCESSING = "processing"
-	USER_PROCEDURE_COMPLETED  = "completed"
-	USER_PROCEDURE_ERROR      = "error"
-	USER_PROCEDURE_CANCELLED  = "cancelled"
+	USER_PROCEDURE_PENDING              = "pending"
+	USER_PROCEDURE_INFORMATION_REVIEW   = "information-review"
+	USER_PROCEDURE_COMPLETED            = "completed"
+	USER_PROCEDURE_INFORMATION_REQUIRED = "information-required"
+	USER_PROCEDURE_CANCELLED            = "cancelled"
+	USER_PROCEDURE_FILED                = "filed"
 
-	USER_PROCEDURE_STEP_PENDING    = "pending"
-	USER_PROCEDURE_STEP_PROCESSING = "processing"
-	USER_PROCEDURE_STEP_DONE       = "done"
-	USER_PROCEDURE_STEP_ERROR      = "error"
-	USER_PROCEDURE_STEP_CANCELLED  = "cancelled"
+	USER_PROCEDURE_STEP_PENDING              = "pending"
+	USER_PROCEDURE_STEP_INFORMATION_REVIEW   = "information-review"
+	USER_PROCEDURE_STEP_DONE                 = "done"
+	USER_PROCEDURE_STEP_INFORMATION_REQUIRED = "information-required"
+	USER_PROCEDURE_STEP_CANCELLED            = "cancelled"
 
 	FULFILLMENT_PAID = "paid"
 )

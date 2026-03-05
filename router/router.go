@@ -139,6 +139,9 @@ func setupRouter(fiber_app *fiber.App) {
 	// finish transaction: update needed in server
 	api_user.Post("/payment/finish.json", middleware.Author(""), handler.FinishPayment)
 
+	// dashboard
+	api_user.Get("/dashboard.json", middleware.Author(""), handler.UserDashboard)
+
 	// payment
 	api_user.Get("/transaction.json", middleware.Author(""), handler.GetTransactions)
 	api_user.Get("/transaction/detail.json", middleware.Author(""), handler.GetTransactionDetails)
@@ -205,6 +208,9 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Patch("/user-procedures/:id/steps/assign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminAssignLawyerToProcedureStep)
 	api_admin.Patch("/user-procedures/steps/status.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedureStepStatus)
 	api_admin.Patch("/user-procedures/steps/:id.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUpdateUserProcedureStep)
+
+	// migration
+	api_admin.Post("/procedures/migrate-status.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminMigrateStatus)
 
 	// tickets
 	api_admin.Get("/tickets/detail.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicketDetail)

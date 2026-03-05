@@ -37,10 +37,11 @@ type NotiMetadata struct {
 }
 
 const ( //notification type
-	NOTIFICATION_PROCEDURE   = "procedure"
-	NOTI_INVOICE_COMPLETED   = "invoice_completed"
-	NOTI_PROCEDURE_ERROR     = "procedure_error"
-	NOTI_PROCEDURE_COMPLETED = "procedure_completed"
-	NOTI_DEADLINE_REMINDER   = "deadline_reminder"
-	NOTI_PROCEDURE_CANCELLED = "procedure_cancelled"
+	NOTIFICATION_PROCEDURE           = "procedure"
+	NOTI_INVOICE_COMPLETED           = "invoice_completed"
+	NOTI_PROCEDURE_ERROR             = "procedure_error"
+	NOTI_PROCEDURE_COMPLETED         = "procedure_completed"
+	NOTI_DEADLINE_REMINDER           = "deadline_reminder"
+	NOTI_PROCEDURE_CANCELLED         = "procedure_cancelled"
+	NOTI_USER_REGISTRATION_COMPLETED = "user_registration_completed"
 )

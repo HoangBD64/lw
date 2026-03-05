@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"core/app/migrations"
 	"core/internal/domain_model/model"
 	"errors"
 	"fmt"
@@ -66,6 +67,11 @@ func (cf *DatabaseConfig) Setup() {
 func MigrateDatabase(DB *gorm.DB) {
 	if tx := DB.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"); tx.Error != nil {
 		slog.Debug("failed to create uuid extension", "error", tx.Error)
+	}
+
+	if err := migrations.New(DB).Migrate(); err != nil {
+		slog.Error("Database migration failed (custom migrator)", "error", err)
+		panic(err)
 	}
 
 	//must be pointer

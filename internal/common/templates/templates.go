@@ -28,11 +28,12 @@ func RenderMailTemplate(tmplName string, data any) (string, error) {
 }
 
 const (
-	MailTemplateProcedureError     = "mail_procedure_error.html"
-	MailTemplateDeadlineReminder   = "mail_deadline_reminder.html"
-	MailTemplateProcedureCancelled = "mail_procedure_cancelled.html"
-	MailTemplateInvoiceCompleted   = "mail_invoice_completed.html"
-	MailTemplateProcedureCompleted = "mail_procedure_completed.html"
+	MailTemplateProcedureError            = "mail_procedure_error.html"
+	MailTemplateDeadlineReminder          = "mail_deadline_reminder.html"
+	MailTemplateProcedureCancelled        = "mail_procedure_cancelled.html"
+	MailTemplateInvoiceCompleted          = "mail_invoice_completed.html"
+	MailTemplateProcedureCompleted        = "mail_procedure_completed.html"
+	MailTemplateUserRegistrationCompleted = "mail_user_registration_completed.html"
 )
 
 type DeadlineReminderData struct {
