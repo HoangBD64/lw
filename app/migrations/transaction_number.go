@@ -7,12 +7,19 @@ import (
 
 func addTransactionIdIntAndBackfillNumberMigration() *gormigrate.Migration {
 	return &gormigrate.Migration{
-		ID: "20260304_add_transaction_id_int_backfill_number",
+		ID: "20260306_add_transaction_id_int_backfill_number",
 		Migrate: func(d *gorm.DB) error {
 			// 1) add column id_int nếu chưa có
 			if err := d.Exec(`
 				ALTER TABLE transactions
 				ADD COLUMN IF NOT EXISTS id_int BIGINT;
+			`).Error; err != nil {
+				return err
+			}
+
+			if err := d.Exec(`
+				ALTER TABLE transactions
+				ADD COLUMN IF NOT EXISTS transaction_number TEXT;
 			`).Error; err != nil {
 				return err
 			}

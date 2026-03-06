@@ -5,6 +5,7 @@ go 1.24.0
 toolchain go1.24.4
 
 require (
+	github.com/go-gormigrate/gormigrate/v2 v2.1.5
 	github.com/go-mail/mail/v2 v2.3.0
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/mold/v4 v4.5.1
@@ -30,7 +31,6 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.10 // indirect
-	github.com/go-gormigrate/gormigrate/v2 v2.1.5 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/gosimple/slug v1.15.0 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
