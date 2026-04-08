@@ -179,6 +179,7 @@ func setupRouter(fiber_app *fiber.App) {
 	api_admin.Get("/documents/:id.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminGetDocument)
 	api_admin.Get("/documents.json", middleware.AuthorizeAdmin("document", "view"), handler.AdminGetDocuments)
 	api_admin.Post("/documents.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminCreateDocument)
+	api_admin.Patch("/documents/rename.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminRenameUploadedFile)
 	api_admin.Patch("/documents/:id.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminUpdateDocument)
 	api_admin.Delete("/documents.json", middleware.AuthorizeAdmin("document", "manage"), handler.AdminDeleteDocument)
 
@@ -199,15 +200,18 @@ func setupRouter(fiber_app *fiber.App) {
 	// user procedure
 	api_admin.Get("/user-procedures.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminListUserProcedures)
 	api_admin.Get("/user-procedures/:id.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetDetailUserProcedures)
-	api_admin.Patch("/user-procedures/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedure)
+	api_admin.Get("/user-procedures/:id/activity-logs.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetUserProcedureActivityLogs)
 	api_admin.Patch("/user-procedures/admin/assign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminAssignUserProcedure)
 	api_admin.Patch("/user-procedures/admin/unassign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUnassignUserProcedure)
+	api_admin.Patch("/user-procedures/admin/mark-review.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminMarkReviewUserProcedure)
+	api_admin.Patch("/user-procedures/admin/action.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUpdateUserProcedureStatus)
+	api_admin.Patch("/user-procedures/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedure)
 
 	// user procedure step
 	api_admin.Get("/user-procedures-steps.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminListUserProcedureSteps)
 	api_admin.Patch("/user-procedures/:id/steps/assign.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminAssignLawyerToProcedureStep)
 	api_admin.Patch("/user-procedures/steps/status.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedureStepStatus)
-	api_admin.Patch("/user-procedures/steps/:id.json", middleware.AuthorizeAdmin("assignment", "manage"), handler.AdminUpdateUserProcedureStep)
+	api_admin.Patch("/user-procedures/steps/:id.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminUpdateUserProcedureStep)
 
 	// migration
 	api_admin.Post("/procedures/migrate-status.json", middleware.AuthorizeAdmin("procedures", "manage"), handler.AdminMigrateStatus)
@@ -215,13 +219,16 @@ func setupRouter(fiber_app *fiber.App) {
 	// tickets
 	api_admin.Get("/tickets/detail.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicketDetail)
 	api_admin.Get("/tickets.json", middleware.AuthorizeAdmin("ticket", "view"), handler.AdminGetTicket)
+	api_admin.Post("/tickets.json", middleware.AuthorizeAdmin("ticket", "manage"), handler.AdminCreateInternalTicket)
 	api_admin.Post("/tickets/content.json", middleware.AuthorizeAdmin("ticket", "manage"), handler.AdminCreateTicketContent)
+	api_admin.Patch("/tickets.json", middleware.AuthorizeAdmin("ticket", "manage"), handler.AdminUpdateTicket)
 
 	// transaction
 	api_admin.Get("/transaction.json", middleware.AuthorizeAdmin("transaction", "view"), handler.AdminGetTransaction)
 
 	// analytics overview
 	api_admin.Get("/analytics.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminGetSystemStats)
+	api_admin.Get("/dashboard.json", middleware.AuthorizeAdmin("procedures", "view"), handler.AdminDashboard)
 
 	// contact forms
 	api_admin.Get("/contact-forms.json", handler.AdminGetContactForms)

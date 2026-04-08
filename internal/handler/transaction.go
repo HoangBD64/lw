@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"core/internal/domain_model/model"
+	"core/internal/notification"
 	"core/internal/repo"
 	"core/pkg/payment"
 	"core/utils"
@@ -353,7 +354,7 @@ func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body Fin
 		deadlineAt = &deadline
 	}
 
-	status := model.USER_PROCEDURE_PENDING
+	status := model.USER_PROCEDURE_CREATED
 	title := "Untitled"
 	isHaveTicket := false
 	var paymentAccount *string
@@ -375,6 +376,7 @@ func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body Fin
 		Cost:           procedure_template.Cost,
 		DueDate:        procedure_template.DueDate,
 		Status:         &status,
+		SystemStatus:   &status,
 		Title:          &title,
 		IsHaveTicket:   &isHaveTicket,
 		State:          &body.State,
@@ -402,6 +404,17 @@ func UserCreateUserProcedureAfterPayment(transaction model.Transaction, body Fin
 		slog.Debug("Error UpdateTransaction:", "err", err)
 		return model.UserProcedure{}, err
 	}
+	appendProcedureActivity(
+		up.ID,
+		systemActivity(
+			"user_procedure.created",
+			fmt.Sprintf("Created procedure %s", up.TemplateName),
+			fiber.Map{"transaction_id": transaction.ID, "payment_account": paymentAccount},
+		),
+	)
+	utils.RunAsync(3*time.Second, func(ctx context.Context) error {
+		return notification.SendProcedureCreatedNoticeToAdmins(up.ID)
+	})
 	return up, nil
 }
 

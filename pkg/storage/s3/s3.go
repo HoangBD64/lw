@@ -5,6 +5,8 @@ import (
 	"core/internal/domain_model/model"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -13,6 +15,11 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
+
+type RenameObjectResponse struct {
+	Key       string `json:"key"`
+	PublicURL string `json:"public_url"`
+}
 
 type PutObjectUpload struct {
 	Acl             string `json:"acl"`
@@ -123,6 +130,7 @@ func GetUrlS3(data PutObjectUpload, user model.User, key KeyS3) (string, string,
 		data.Title = GenerateHandle(data.Title)
 	}
 	uuidKey, _ := uuid.NewUUID()
+	fmt.Println("==========>1", user.Name)
 	objectKey := fmt.Sprintf("%s/%s/%s/%s/%s", data.ParentFolder, fmt.Sprint(user.Name), time.Now().Format("200601"), uuidKey, data.Title)
 	presignedURL, err := minioClient.PresignedPutObject(context.Background(), bucketName, objectKey, time.Duration(1000)*time.Second)
 	if err != nil {
@@ -260,4 +268,61 @@ func EntityPutPresignedObject(ctx context.Context, request PutObjectUpload, enti
 	}
 
 	return out, nil
+}
+
+func objectKeyFromURL(rawURL string, key KeyS3) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+	objectKey := strings.Trim(strings.TrimPrefix(parsed.Path, "/"), "/")
+	if objectKey == "" {
+		return "", fmt.Errorf("invalid object url: missing object key")
+	}
+	bucketPrefix := strings.Trim(key.Bucket, "/") + "/"
+	objectKey = strings.TrimPrefix(objectKey, bucketPrefix)
+	return objectKey, nil
+}
+
+func buildPublicObjectURL(key KeyS3, objectKey string) string {
+	objectPath := "/" + strings.TrimPrefix(objectKey, "/")
+	if key.EndPointCdn != "" && key.EndPointCdn != key.EndPointApi {
+		return getPublicObjectURL(key.EndPointApi, key.EndPointCdn, key.Bucket, objectPath, key.IsSSL)
+	}
+
+	bucketPath := "/" + strings.Trim(key.Bucket, "/") + objectPath
+	return getPublicObjectURL(key.EndPointApi, key.EndPointCdn, key.Bucket, bucketPath, key.IsSSL)
+}
+
+func RenameObject(ctx context.Context, key KeyS3, fileURL string, newName string) (*RenameObjectResponse, error) {
+	credential := credentials.NewStaticV4(key.AccessKey, key.SecretKey, "")
+	client, err := minio.New(key.EndPointApi, &minio.Options{Creds: credential, Secure: key.IsSSL})
+	if err != nil {
+		return nil, err
+	}
+
+	sourceKey, err := objectKeyFromURL(fileURL, key)
+	if err != nil {
+		return nil, err
+	}
+	cleanName := GenerateHandle(newName)
+	ext := path.Ext(sourceKey)
+	if path.Ext(cleanName) == "" && ext != "" {
+		cleanName += ext
+	}
+	newKey := path.Join(path.Dir(sourceKey), cleanName)
+	if newKey == sourceKey {
+		return &RenameObjectResponse{Key: newKey, PublicURL: buildPublicObjectURL(key, newKey)}, nil
+	}
+
+	src := minio.CopySrcOptions{Bucket: key.Bucket, Object: sourceKey}
+	dst := minio.CopyDestOptions{Bucket: key.Bucket, Object: newKey}
+	if _, err := client.CopyObject(ctx, dst, src); err != nil {
+		return nil, err
+	}
+	if err := client.RemoveObject(ctx, key.Bucket, sourceKey, minio.RemoveObjectOptions{}); err != nil {
+		return nil, err
+	}
+
+	return &RenameObjectResponse{Key: newKey, PublicURL: buildPublicObjectURL(key, newKey)}, nil
 }

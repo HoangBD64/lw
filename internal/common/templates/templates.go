@@ -34,6 +34,9 @@ const (
 	MailTemplateInvoiceCompleted          = "mail_invoice_completed.html"
 	MailTemplateProcedureCompleted        = "mail_procedure_completed.html"
 	MailTemplateUserRegistrationCompleted = "mail_user_registration_completed.html"
+	MailTemplateAdminProcedureNotice      = "mail_admin_procedure_notice.html"
+	MailTemplateLawyerProcedureNotice     = "mail_lawyer_procedure_notice.html"
+	MailTemplateInternalDeadlineAlert     = "mail_internal_deadline_alert.html"
 )
 
 type DeadlineReminderData struct {
@@ -47,4 +50,18 @@ type DeadlineReminderData struct {
 	Cost                string
 	Status              string
 	DueDays             int
+}
+
+type InternalProcedureMailData struct {
+	RecipientName        string
+	Badge                string
+	Intro                string
+	ProcedureName        string
+	CompanyName          string
+	ClientName           string
+	DueDate              string
+	UserProcedureNumber  string
+	AssignedLawyerName   string
+	WebsiteURL           string
+	ProcedureStatusLabel string
 }

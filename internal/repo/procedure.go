@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -137,6 +139,14 @@ func AdminGetUserProcedureByID(userProcedureID int) (model.UserProcedure, error)
 	return up, err
 }
 
+func AdminGetUserProcedureByIDs(userProcedureIDs []int) ([]model.UserProcedure, error) {
+	var ups []model.UserProcedure
+	err := app.Database.DB.Model(&model.UserProcedure{}).
+		Where("id IN ?", userProcedureIDs).
+		Find(&ups).Error
+	return ups, err
+}
+
 func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 	var (
 		items []model.UserProcedure
@@ -162,6 +172,9 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 	if q.Status != "" {
 		tx = tx.Where("status = ?", q.Status)
 	}
+	if q.SystemStatus != "" {
+		tx = tx.Where("system_status = ?", q.SystemStatus)
+	}
 	if q.AdminID != nil {
 		tx = tx.Where("admin_id = ?", q.AdminID)
 	}
@@ -178,7 +191,7 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 		if *q.IsAssigned {
 			tx = tx.Where("admin_id IS NOT NULL")
 		} else {
-			tx = tx.Where("admin_id IS NULL AND status = ?", model.USER_PROCEDURE_PENDING)
+			tx = tx.Where("admin_id IS NULL AND status = ?", model.USER_PROCEDURE_CREATED)
 		}
 	}
 	tx = tx.Count(&count)
@@ -194,32 +207,27 @@ func AdminListUserProcedures(q Query) ([]model.UserProcedure, int64, error) {
 func AssignAdminToUserProcedures(userProcedureIDs []int, adminID uuid.UUID) (int64, error) {
 	// if status is PENDING, change to PROCESSING, else keep current status
 	allowAssignStatuses := []string{
-		model.USER_PROCEDURE_PENDING,
-		model.USER_PROCEDURE_INFORMATION_REVIEW,
-		model.USER_PROCEDURE_INFORMATION_REQUIRED,
+		model.USER_PROCEDURE_SUBMITTED,
+		model.USER_PROCEDURE_PENDING_REVIEW,
 	}
 
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
-		Where("id IN ? AND status IN ?", userProcedureIDs, allowAssignStatuses).
+		Where("id IN ? AND status IN ?",
+			userProcedureIDs,
+			allowAssignStatuses,
+		).
 		Updates(map[string]any{
-			"admin_id": adminID,
-			"status": gorm.Expr(`
-				CASE
-					WHEN status = ? THEN ?
-					ELSE status
-				END
-			`,
-				model.USER_PROCEDURE_PENDING,
-				model.USER_PROCEDURE_INFORMATION_REVIEW,
-			),
+			"admin_id":      adminID,
+			"status":        model.USER_PROCEDURE_IN_PROGRESS,
+			"system_status": model.USER_PROCEDURE_IN_PROGRESS,
 		})
 
 	_ = app.Database.DB.Model(&model.UserProcedureStep{}).
-		Where("user_procedure_id IN ? AND status = ?",
+		Where("user_procedure_id IN ? AND status IN ?",
 			userProcedureIDs,
-			model.USER_PROCEDURE_PENDING,
+			allowAssignStatuses,
 		).
-		Update("status", model.USER_PROCEDURE_STEP_INFORMATION_REVIEW)
+		Update("status", model.USER_PROCEDURE_STEP_IN_PROGRESS)
 
 	return tx.RowsAffected, tx.Error
 }
@@ -279,9 +287,18 @@ func AdminGetUserProcedureSteps(query Query) ([]model.UserProcedureStep, int64, 
 func AdminGetUserProcedureDetailByID(userProcedureID int) (model.UserProcedure, error) {
 	var up model.UserProcedure
 	err := app.Database.DB.Model(&model.UserProcedure{}).
-		Preload("UserProcedureSteps").
+		Preload("UserProcedureSteps", func(dbx *gorm.DB) *gorm.DB {
+			return dbx.
+				Order("position ASC").
+				Preload("Documents", func(docTx *gorm.DB) *gorm.DB {
+					return docTx.Order("created_at DESC")
+				})
+		}).
 		Preload("Admin", func(dbx *gorm.DB) *gorm.DB {
 			return dbx.Model(&model.Admin{}).Select("id", "name", "email", "role", "avatar", "status")
+		}).
+		Preload("User", func(dbx *gorm.DB) *gorm.DB {
+			return dbx.Model(&model.User{}).Select("id", "name", "email", "phone", "avatar", "status")
 		}).
 		Where("id = ?", userProcedureID).
 		First(&up).Error
@@ -292,6 +309,76 @@ func AdminUpdateUserProcedure(up *model.UserProcedure) error {
 	return app.Database.DB.Model(&model.UserProcedure{}).
 		Where("id = ?", up.ID).
 		Updates(up).Error
+}
+
+func AdminMarkReviewUserProcedures(ups []model.UserProcedure) error {
+	ids := lo.Map(ups, func(up model.UserProcedure, _ int) int { return up.ID })
+	err := app.Database.DB.Debug().Model(&model.UserProcedure{}).
+		Where("id IN ?", ids).
+		Updates(map[string]interface{}{
+			"status":        model.USER_PROCEDURE_PENDING_REVIEW,
+			"system_status": model.USER_PROCEDURE_PENDING_REVIEW,
+		}).Error
+	return err
+}
+
+func AdminHoldUserProcedures(ups []model.UserProcedure) error {
+	ids := lo.Map(ups, func(up model.UserProcedure, _ int) int { return up.ID })
+	err := app.Database.DB.Debug().Model(&model.UserProcedure{}).
+		Where("id IN ?", ids).
+		Updates(map[string]interface{}{
+			"system_status": model.USER_PROCEDURE_HOLD,
+			"status":        model.USER_PROCEDURE_HOLD,
+		}).Error
+	return err
+}
+
+func AdminResumeUserProcedures(ups []model.UserProcedure) error {
+	ids := lo.Map(ups, func(up model.UserProcedure, _ int) int { return up.ID })
+	err := app.Database.DB.Debug().Model(&model.UserProcedure{}).
+		Where("id IN ?", ids).
+		Updates(map[string]interface{}{
+			"system_status": model.USER_PROCEDURE_IN_PROGRESS,
+			"status":        model.USER_PROCEDURE_IN_PROGRESS,
+		}).Error
+	return err
+}
+
+func GetUserProcedureActivityLogs(userProcedureID int) ([]model.ActivityLog, error) {
+	var up model.UserProcedure
+	if err := app.Database.DB.Model(&model.UserProcedure{}).
+		Select("id", "activity_logs").
+		Where("id = ?", userProcedureID).
+		First(&up).Error; err != nil {
+		return nil, err
+	}
+	if len(up.ActivityLogs) == 0 {
+		return []model.ActivityLog{}, nil
+	}
+
+	var logs []model.ActivityLog
+	if err := json.Unmarshal(up.ActivityLogs, &logs); err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func AppendUserProcedureActivity(userProcedureID int, entry model.ActivityLog) error {
+	logs, err := GetUserProcedureActivityLogs(userProcedureID)
+	if err != nil {
+		return err
+	}
+	if entry.CreatedAt.IsZero() {
+		entry.CreatedAt = time.Now()
+	}
+	logs = append(logs, entry)
+	payload, err := json.Marshal(logs)
+	if err != nil {
+		return err
+	}
+	return app.Database.DB.Model(&model.UserProcedure{}).
+		Where("id = ?", userProcedureID).
+		Update("activity_logs", datatypes.JSON(payload)).Error
 }
 
 func AdminBulkUpsertProcedureWithSteps(proc model.Procedure, steps []model.ProcedureStep) (model.Procedure, []model.ProcedureStep, error) {
@@ -417,7 +504,14 @@ func UserGetProcedures(q Query) ([]model.Procedure, int64, error) {
 func UserGetUserProcedureDetail(userProcedureID int, userID uuid.UUID) ([]model.UserProcedure, error) {
 	var ups []model.UserProcedure
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
-		Preload("UserProcedureSteps").
+		Preload("UserProcedureSteps", func(dbx *gorm.DB) *gorm.DB {
+			return dbx.
+				Order("position ASC").
+				Preload("Documents", func(docTx *gorm.DB) *gorm.DB {
+					return docTx.Where("COALESCE(is_publish, false) = ?", true).Order("created_at DESC")
+				})
+		}).
+		Omit("SystemStatus").
 		Where("id = ? AND user_id = ?", userProcedureID, userID).
 		Find(&ups)
 	return ups, tx.Error
@@ -428,6 +522,7 @@ func UserGetProcedureByID(id int) (model.Procedure, error) {
 	tx := app.Database.DB.
 		Preload("ProcedureSteps").
 		Preload("ExtraFees").
+		Omit("SystemStatus").
 		Where("is_active = ?", true).
 		First(&p, "id = ?", id)
 	return p, tx.Error
@@ -482,6 +577,7 @@ func UserGetUserProceduresByUser(userID uuid.UUID, q Query) ([]model.UserProcedu
 	)
 	tx := app.Database.DB.Model(&model.UserProcedure{}).
 		Preload("UserProcedureSteps", func(tx *gorm.DB) *gorm.DB { return tx.Select("id", "user_procedure_id", "status", "position", "name") }).
+		Omit("SystemStatus").
 		Where("user_id = ?", userID)
 	if q.Status != "" {
 		tx = tx.Where("status = ?", q.Status)
@@ -613,10 +709,10 @@ func AdminMigrateStatus(dryRun bool) (domain.AdminMigrateStatusResponse, error) 
 		}
 	}()
 
-	// Update UserProcedures: processing -> information-review
+	// Update UserProcedures: information-review -> in-progress
 	userProcResult1 := tx.Model(&model.UserProcedure{}).
-		Where("status = ?", "processing").
-		Update("status", model.USER_PROCEDURE_INFORMATION_REVIEW)
+		Where("status = ?", "information-review").
+		Update("status", model.USER_PROCEDURE_IN_PROGRESS)
 	if userProcResult1.Error != nil {
 		tx.Rollback()
 		return response, userProcResult1.Error
@@ -631,10 +727,19 @@ func AdminMigrateStatus(dryRun bool) (domain.AdminMigrateStatusResponse, error) 
 		return response, userProcResult2.Error
 	}
 
-	// Update UserProcedureSteps: processing -> information-review
+	// Update UserProcedures: pending -> created
+	userProcResult3 := tx.Model(&model.UserProcedure{}).
+		Where("status = ?", "pending").
+		Update("status", model.USER_PROCEDURE_CREATED)
+	if userProcResult3.Error != nil {
+		tx.Rollback()
+		return response, userProcResult3.Error
+	}
+
+	// Update UserProcedureSteps: information-review -> in-progress
 	userStepResult1 := tx.Model(&model.UserProcedureStep{}).
-		Where("status = ?", "processing").
-		Update("status", model.USER_PROCEDURE_STEP_INFORMATION_REVIEW)
+		Where("status = ?", "information-review").
+		Update("status", model.USER_PROCEDURE_STEP_IN_PROGRESS)
 	if userStepResult1.Error != nil {
 		tx.Rollback()
 		return response, userStepResult1.Error
@@ -647,6 +752,15 @@ func AdminMigrateStatus(dryRun bool) (domain.AdminMigrateStatusResponse, error) 
 	if userStepResult2.Error != nil {
 		tx.Rollback()
 		return response, userStepResult2.Error
+	}
+
+	// Update UserProcedureSteps: pending -> created
+	userStepResult3 := tx.Model(&model.UserProcedureStep{}).
+		Where("status = ?", "pending").
+		Update("status", model.USER_PROCEDURE_STEP_CREATED)
+	if userStepResult3.Error != nil {
+		tx.Rollback()
+		return response, userStepResult3.Error
 	}
 
 	if err := tx.Commit().Error; err != nil {
@@ -664,15 +778,15 @@ func AdminMigrateStatus(dryRun bool) (domain.AdminMigrateStatusResponse, error) 
 func CountUserProceduresByStatus(userID uuid.UUID, query Query) (map[string]int64, error) {
 	statuses := []string{
 		model.USER_PROCEDURE_INFORMATION_REQUIRED,
-		model.USER_PROCEDURE_INFORMATION_REVIEW,
-		model.USER_PROCEDURE_PENDING,
+		model.USER_PROCEDURE_IN_PROGRESS,
+		model.USER_PROCEDURE_CREATED,
 		model.USER_PROCEDURE_COMPLETED,
 	}
 
 	result := map[string]int64{
 		model.USER_PROCEDURE_INFORMATION_REQUIRED: 0,
-		model.USER_PROCEDURE_INFORMATION_REVIEW:   0,
-		model.USER_PROCEDURE_PENDING:              0,
+		model.USER_PROCEDURE_IN_PROGRESS:          0,
+		model.USER_PROCEDURE_CREATED:              0,
 		model.USER_PROCEDURE_COMPLETED:            0,
 	}
 

@@ -22,6 +22,7 @@ type User struct {
 	IsAccept   bool           `json:"is_accept,omitempty" gorm:"default:false"`
 	Referral   string         `json:"ref,omitempty"`
 	SystemNote datatypes.JSON `json:"system_note,omitempty"`
+	Metadata   datatypes.JSON `json:"metadata,omitempty"`
 }
 
 const ( //status

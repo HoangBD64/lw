@@ -16,6 +16,7 @@ type InputMail struct {
 	Subject string
 	Content string
 	Mail    string
+	CC      []string
 }
 
 type Config struct {
@@ -38,6 +39,9 @@ func SendMail(send_mail InputMail, config Config) error {
 	m := mail.NewMessage()
 	m.SetHeader("From", HeaderName+"<"+SENDER_MAIL+">")
 	m.SetHeader("To", send_mail.Mail)
+	if len(send_mail.CC) > 0 {
+		m.SetHeader("Cc", send_mail.CC...)
+	}
 	m.SetHeader("Subject", send_mail.Subject)
 	m.SetBody("text/html", send_mail.Content)
 	d := mail.NewDialer(HOST, PORT, MAIL_ACCOUNT, PASS)

@@ -11,12 +11,13 @@ type VerifyUserSSORequest struct {
 }
 
 type UpdateUserInfoRequest struct {
-	Name    string  `json:"name"`
-	Phone   *string `json:"phone"`
-	Gender  string  `json:"gender,omitempty"`
-	DOB     string  `json:"dob,omitempty"`
-	Address string  `json:"address,omitempty"`
-	Avatar  *string `json:"avatar,omitempty"`
+	Name     string          `json:"name"`
+	Phone    *string         `json:"phone"`
+	Gender   string          `json:"gender,omitempty"`
+	DOB      string          `json:"dob,omitempty"`
+	Address  string          `json:"address,omitempty"`
+	Avatar   *string         `json:"avatar,omitempty"`
+	Metadata *datatypes.JSON `json:"metadata,omitempty"`
 }
 
 type AdminUpdateUserRequest struct {

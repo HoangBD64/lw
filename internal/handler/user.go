@@ -134,12 +134,27 @@ func UpdateUserInfo(c *fiber.Ctx) error {
 	if err := c.BodyParser(&input); err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Review your input", Error: err})
 	}
-	user.Name = input.Name
-	user.Phone = input.Phone
-	user.Avatar = input.Avatar
-	user.Gender = input.Gender
-	user.DOB = input.DOB
-	user.Address = input.Address
+	if input.Name != "" {
+		user.Name = input.Name
+	}
+	if input.Phone != nil {
+		user.Phone = input.Phone
+	}
+	if input.Avatar != nil {
+		user.Avatar = input.Avatar
+	}
+	if input.Gender != "" {
+		user.Gender = input.Gender
+	}
+	if input.DOB != "" {
+		user.DOB = input.DOB
+	}
+	if input.Address != "" {
+		user.Address = input.Address
+	}
+	if input.Metadata != nil {
+		user.Metadata = *input.Metadata
+	}
 	user_updated, err := repo.UpdateUserInfo(user)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't UpdateUserInfo", Error: err})
@@ -226,8 +241,8 @@ func UserDashboard(c *fiber.Ctx) error {
 	}
 	resp := domain.UserDashboardResponse{
 		InformationRequired: counts[model.USER_PROCEDURE_INFORMATION_REQUIRED],
-		InformationReview:   counts[model.USER_PROCEDURE_INFORMATION_REVIEW],
-		Pending:             counts[model.USER_PROCEDURE_PENDING],
+		Inprogress:          counts[model.USER_PROCEDURE_IN_PROGRESS],
+		Created:             counts[model.USER_PROCEDURE_CREATED],
 		Completed:           counts[model.USER_PROCEDURE_COMPLETED],
 	}
 	return c.JSON(base.BaseResponse{Status: true, Data: resp})

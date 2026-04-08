@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"core/internal/domain_model/domain"
 	"core/internal/domain_model/model"
 	"core/internal/repo"
 	base "core/utils/base"
@@ -37,10 +38,11 @@ func AdminGetSystemStats(c *fiber.Ctx) error {
 		stepStatusCounts map[string]int64
 		templateUsages   any
 		newUsers         any
+		isUsingService   any
 	)
 
 	var wg sync.WaitGroup
-	errCh := make(chan error, 4)
+	errCh := make(chan error, 5)
 
 	wg.Add(1)
 	go func() {
@@ -86,6 +88,17 @@ func AdminGetSystemStats(c *fiber.Ctx) error {
 		newUsers = nu
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		usingService, err := repo.GetAnalyticsIsUsingService(ctx, q)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		isUsingService = usingService
+	}()
+
 	go func() {
 		wg.Wait()
 		close(errCh)
@@ -101,13 +114,47 @@ func AdminGetSystemStats(c *fiber.Ctx) error {
 	for _, count := range statusCounts {
 		upCounts += int(count)
 	}
-	data := fiber.Map{
+	data := js{
 		"user_procedure_status":      statusCounts,
 		"user_procedure_count":       upCounts,
 		"user_procedure_step_status": stepStatusCounts,
 		"template_usage":             templateUsages,
 		"new_users":                  newUsers,
+		"is_using_service":           isUsingService,
 	}
 
 	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: data})
+}
+
+func AdminDashboard(c *fiber.Ctx) error {
+	admin, ok := c.Locals("admin").(model.Admin)
+	if !ok {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Please login again as admin"})
+	}
+
+	var q repo.Query
+	q.Parse(c)
+
+	assigned, total, err := repo.GetAdminDashboardAssignedProcedures(admin, q)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "failed to get assigned procedures", Error: err})
+	}
+	workloads, err := repo.GetAdminDashboardLawyerWorkloads(admin)
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "failed to get lawyer workloads", Error: err})
+	}
+
+	userWorkloads, err := repo.GetAdminDashboardUserWorkloads()
+	if err != nil {
+		return c.JSON(base.BaseResponse{Status: false, Message: "failed to get user workloads", Error: err})
+	}
+
+	resp := domain.AdminDashboardResponse{
+		AssignedProcedures: assigned,
+		LawyerWorkloads:    workloads,
+		UserWorkloads:      userWorkloads,
+		AssignedTotal:      total,
+	}
+
+	return c.JSON(base.BaseResponse{Status: true, Message: "Success", Data: resp})
 }

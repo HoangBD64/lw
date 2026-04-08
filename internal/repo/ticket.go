@@ -16,9 +16,13 @@ func GetTickets(query Query) ([]model.Ticket, int64, error) {
 	var tickets []model.Ticket
 	var count int64
 
-	tx := app.Database.DB.Model(&model.Ticket{})
-	sub := app.Database.DB.Model(&model.UserProcedure{}).Select("id").Where("user_id = ?", *query.UserID)
-	tx = tx.Where("user_procedure_id IN (?)", sub)
+	tx := app.Database.DB.Model(&model.Ticket{}).
+		Where("user_id = ?", *query.UserID).
+		Where("is_internal = ?", false).
+		Preload("UserProcedure", func(tx *gorm.DB) *gorm.DB {
+			tx = tx.Select("id", "proc_number", "template_name", "company_name")
+			return tx
+		})
 	if query.UserProcedureID != nil {
 		tx = tx.Where("user_procedure_id = ?", *query.UserProcedureID)
 	}
@@ -39,6 +43,13 @@ func GetTickets(query Query) ([]model.Ticket, int64, error) {
 	if query.TicketResolution != "" {
 		tx = tx.Where("resolution_type = ?", query.TicketResolution)
 	}
+	if query.Type != "" {
+		tx = tx.Where("type = ?", query.Type)
+	}
+	if query.Search != "" {
+		like := "%" + query.Search + "%"
+		tx = tx.Where("category ILIKE ? OR subject ILIKE ? OR proc_number ILIKE ? OR template_name ILIKE ? OR company_name ILIKE ?", like, like, like, like, like)
+	}
 	if query.StartTime != nil && query.EndTime != nil {
 		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)
 	}
@@ -56,8 +67,14 @@ func GetTickets(query Query) ([]model.Ticket, int64, error) {
 
 func GetTicketDetail(id int, user model.User) (model.Ticket, error) {
 	var ticket model.Ticket
-	tx := app.Database.DB.Model(&model.Ticket{}).Debug().Where("id = ?", id).
+	tx := app.Database.DB.Model(&model.Ticket{}).
+		Where("tickets.id = ?", id).
+		Where("up.user_id = ?", user.ID).
+		Where("tickets.is_internal = ?", false).
+		Preload("UserProcedure")
+	tx = tx.
 		Preload("TicketContents", func(tx *gorm.DB) *gorm.DB {
+			tx = tx.Where("is_internal = ?", false)
 			tx = tx.Preload("User", func(tx *gorm.DB) *gorm.DB {
 				tx = tx.Select("id", "name", "email", "avatar")
 				return tx
@@ -72,18 +89,12 @@ func GetTicketDetail(id int, user model.User) (model.Ticket, error) {
 }
 func GetTicketByID(id int, user model.User) (model.Ticket, error) {
 	var ticket model.Ticket
-	tx := app.Database.DB.Model(&model.Ticket{}).Where("id = ?", id).First(&ticket)
+	tx := app.Database.DB.Model(&model.Ticket{}).
+		Where("tickets.id = ?", id).
+		Where("up.user_id = ?", user.ID).
+		Where("tickets.is_internal = ?", false).
+		Preload("UserProcedure").First(&ticket)
 	return ticket, tx.Error
-}
-
-func CreateDocumentTicket(document_ticket []model.DocumentTicket) ([]model.DocumentTicket, error) {
-	tx := app.Database.DB.Model(&model.DocumentTicket{}).Create(&document_ticket)
-	return document_ticket, tx.Error
-}
-
-func CreateUserDocumentTicket(items []model.UserDocumentTicket) ([]model.UserDocumentTicket, error) {
-	tx := app.Database.DB.Model(&model.UserDocumentTicket{}).Create(&items)
-	return items, tx.Error
 }
 
 func CreateTicketContent(new model.TicketContent) (model.TicketContent, error) {
@@ -92,25 +103,26 @@ func CreateTicketContent(new model.TicketContent) (model.TicketContent, error) {
 }
 
 func UpdateTicket(ticket model.Ticket) (model.Ticket, error) {
-	tx := app.Database.DB.Model(&model.Ticket{}).Where("id = ?", ticket.ID).Select("status", "read_at", "admin_read_at").Updates(&ticket)
+	tx := app.Database.DB.Model(&model.Ticket{}).Where("id = ?", ticket.ID).Updates(&ticket)
 	return ticket, tx.Error
 }
 
 func AdminGetTicketByID(id int) (model.Ticket, error) {
 	var ticket model.Ticket
-	tx := app.Database.DB.Model(&model.Ticket{}).Where("id = ? ", id).First(&ticket)
+	tx := app.Database.DB.Model(&model.Ticket{}).Preload("UserProcedure").Where("id = ? ", id).First(&ticket)
 	return ticket, tx.Error
 }
 
 func AdminGetTicketDetail(id int) (model.Ticket, error) {
 	var ticket model.Ticket
-	tx := app.Database.DB.Model(&model.Ticket{}).Debug().Where("id = ? ", id).Preload("TicketContents", func(tx *gorm.DB) *gorm.DB {
+	tx := app.Database.DB.Model(&model.Ticket{}).Where("id = ? ", id).Preload("UserProcedure")
+	tx = tx.Preload("TicketContents", func(tx *gorm.DB) *gorm.DB {
 		tx = tx.Preload("User", func(tx *gorm.DB) *gorm.DB {
 			tx = tx.Select("id", "name", "email", "avatar")
 			return tx
 		})
 		tx = tx.Preload("Admin", func(tx *gorm.DB) *gorm.DB {
-			tx = tx.Select("id", "name", "email", "avatar")
+			tx = tx.Select("id", "name", "email", "avatar", "role", "status")
 			return tx
 		})
 		return tx
@@ -122,11 +134,13 @@ func AdminGetTickets(query Query) ([]model.Ticket, int64, error) {
 	var tickets []model.Ticket
 	var count int64
 
-	tx := app.Database.DB.Debug().Model(&model.Ticket{})
+	tx := app.Database.DB.Model(&model.Ticket{}).Preload("UserProcedure")
+	if query.AdminID != nil {
+		tx = tx.Where("admin_id = ? OR creator_admin_id = ?", *query.AdminID, *query.AdminID)
+	}
 
 	if query.UserID != nil {
-		sub := app.Database.DB.Model(&model.UserProcedure{}).Select("id").Where("user_id = ?", *query.UserID)
-		tx = tx.Where("user_procedure_id IN (?)", sub)
+		tx = tx.Where("user_id = ? ", *query.UserID)
 	}
 	if query.UserProcedureID != nil {
 		tx = tx.Where("user_procedure_id = ?", *query.UserProcedureID)
@@ -144,11 +158,14 @@ func AdminGetTickets(query Query) ([]model.Ticket, int64, error) {
 	if query.TicketCategory != "" {
 		tx = tx.Where("category = ?", query.TicketCategory)
 	}
-	if query.TicketSubCategory != "" {
-		tx = tx.Where("sub_category = ?", query.TicketSubCategory)
-	}
 	if query.TicketResolution != "" {
 		tx = tx.Where("resolution_type = ?", query.TicketResolution)
+	}
+	if query.Type != "" {
+		tx = tx.Where("type = ?", query.Type)
+	}
+	if query.Search != "" {
+		tx = tx.Where("subject ILIKE ? OR ticket_code ILIKE ?", "%"+query.Search+"%", "%"+query.Search+"%")
 	}
 	if query.StartTime != nil && query.EndTime != nil {
 		tx = tx.Where("created_at >= ? AND created_at <= ?", query.StartTime, query.EndTime)

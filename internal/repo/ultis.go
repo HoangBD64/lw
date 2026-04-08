@@ -29,13 +29,14 @@ type Query struct {
 	IsHaveTicket *bool      `query:"is_have_ticket" json:"is_have_ticket,omitempty"`
 	IsAssigned   *bool      `query:"is_assigned" json:"is_assigned,omitempty"`
 	//
-	StartTime *time.Time `query:"start_time" json:"start_time,omitempty"`
-	EndTime   *time.Time `query:"end_time" json:"end_time,omitempty"`
-	Status    string     `query:"status" json:"status,omitempty"`
-	Type      string     `query:"type" json:"type,omitempty"`
-	Sort      string     `query:"sort" json:"sort,omitempty"`
-	Filter    string     `query:"filter" json:"filter"`
-	Hidden    *bool      `query:"hidden"`
+	StartTime    *time.Time `query:"start_time" json:"start_time,omitempty"`
+	EndTime      *time.Time `query:"end_time" json:"end_time,omitempty"`
+	Status       string     `query:"status" json:"status,omitempty"`
+	SystemStatus string     `query:"system_status" json:"system_status,omitempty"`
+	Type         string     `query:"type" json:"type,omitempty"`
+	Sort         string     `query:"sort" json:"sort,omitempty"`
+	Filter       string     `query:"filter" json:"filter"`
+	Hidden       *bool      `query:"hidden"`
 
 	// Ticket/document filters
 	TicketID          *int   `query:"ticket_id"  json:"ticket_id,omitempty"`

@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"core/internal/domain_model/model"
-
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
@@ -56,25 +54,6 @@ type AdminDeleteProcedureStepRequest struct {
 	ID int `json:"id" validate:"required,gt=0"`
 }
 
-type AdminListProcedureStepsRequest struct {
-	ID int `json:"id" validate:"required,gt=0"` // procedure_id
-}
-
-type UserUpsertProcedureStepDataRequest struct {
-	UserProcedureID int            `json:"user_procedure_id"`
-	ProcedureStepID int            `json:"procedure_step_id"`
-	Status          string         `json:"status"`
-	Data            datatypes.JSON `json:"data"`
-}
-
-type UserListProcedureStepDataRequest struct {
-	ID int `json:"id"` // user_procedure_id
-}
-
-type AdminListUserProcedureStepDataRequest struct {
-	ID int `json:"id"`
-}
-
 type AdminBulkUpsertProcedureRequest struct {
 	Procedure      AdminBulkUpsertProcedure       `json:"procedure" validate:"required"`
 	ProcedureSteps []AdminBulkUpsertProcedureStep `json:"procedure_steps"`
@@ -104,20 +83,18 @@ type AdminBulkUpsertProcedureStep struct {
 	Description *string        `json:"description,omitempty"`
 }
 
-type UserCreateProcedureRequest struct {
-	ProcedureID    int                             `json:"procedure_id" validate:"required,gt=0"`
-	ProcedureSteps []UserProcedureStepOverrideData `json:"user_procedure_steps"`
-	Title          string                          `json:"title,omitempty"`
-}
-
-type UserProcedureStepOverrideData struct {
-	ProcedureStepID int            `json:"procedure_step_id" validate:"required,gt=0"`
-	Data            datatypes.JSON `json:"data"`
-}
-
 type AssignUserProcedureRequest struct {
 	UserProcedureID []int      `json:"user_procedure_id" validate:"required,gt=0"`
 	AdminID         *uuid.UUID `json:"admin_id" validate:"required"`
+}
+
+type MarkReviewUserProcedureRequest struct {
+	UserProcedureID []int `json:"user_procedure_id" validate:"required,gt=0"`
+}
+
+type AdminUpdateUserProcedureStatusRequest struct {
+	UserProcedureID []int  `json:"user_procedure_id" validate:"required,gt=0"`
+	Action          string `json:"action" validate:"required,oneof=hold resume mark_review"`
 }
 
 type UnassignUserProcedureRequest struct {
@@ -125,14 +102,16 @@ type UnassignUserProcedureRequest struct {
 }
 
 type UserUpdateUserProcedureStepRequest struct {
-	Data          datatypes.JSON `json:"data"`
-	UserCompleted *bool          `json:"user_completed,omitempty"`
+	Data   datatypes.JSON `json:"data"`
+	Status string         `json:"status"`
+	// UserCompleted *bool          `json:"user_completed,omitempty"`
 }
 
 type AdminUpdateUserProcedureRequest struct {
-	Status string `json:"status"`
-	Note   string `json:"note"`
-	IsLock *bool  `json:"is_lock"`
+	Status   string `json:"status"`
+	Note     string `json:"note"`
+	Priority string `json:"priority,omitempty"`
+	IsLock   *bool  `json:"is_lock"`
 }
 
 type AdminAssignLawyerToProcedureStepRequest struct {
@@ -150,16 +129,10 @@ type AdminUpdateUserProcedureStepStatusRequest struct {
 }
 
 type AdminUserUpdateProcedureStepRequest struct {
-	FeedBack      datatypes.JSON `json:"feedback"`
-	Notes         string         `json:"notes"`
-	Status        string         `json:"status"`
-	UserCompleted *bool          `json:"user_completed,omitempty"`
-}
-
-// GroupedUserProcedure represents grouped user procedures by company_code
-type GroupedUserProcedure struct {
-	model.UserProcedure
-	PaymentAccounts []model.UserProcedure `json:"payment_accounts,omitempty"`
+	FeedBack datatypes.JSON `json:"feedback"`
+	Notes    string         `json:"notes"`
+	Status   string         `json:"status"`
+	// UserCompleted *bool          `json:"user_completed,omitempty"`
 }
 
 // AdminMigrateStatusRequest represents request to migrate status

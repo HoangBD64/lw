@@ -15,7 +15,11 @@ func AdminCreateDocument(doc *model.Document) error {
 
 func AdminGetDocumentByID(id int) (model.Document, error) {
 	var doc model.Document
-	err := app.Database.DB.First(&doc, "id = ?", id).Error
+	err := app.Database.DB.
+		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "admin_id", "proc_number", "company_code", "payment_account")
+		}).
+		First(&doc, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return doc, err
 	}
@@ -33,8 +37,8 @@ func AdminDeleteDocumentByIDs(ids []int) (int64, error) {
 	return result.RowsAffected, nil
 }
 
-func AdminUpdateDocument(doc *model.Document, adminID uuid.UUID) error {
-	return app.Database.DB.Model(&model.Document{}).Where("id = ? AND admin_id = ?", doc.ID, adminID).Updates(doc).Error
+func AdminUpdateDocument(doc *model.Document) error {
+	return app.Database.DB.Model(&model.Document{}).Where("id = ?", doc.ID).Updates(doc).Error
 }
 
 func AdminGetDocuments(q Query) ([]model.Document, int64, error) {
@@ -88,7 +92,7 @@ func AdminGetDocuments(q Query) ([]model.Document, int64, error) {
 	// Get all documents for the selected company codes
 	tx := app.Database.DB.Model(&model.Document{}).
 		Preload("UserProcedure", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "proc_number", "company_code", "payment_account")
+			return db.Select("id", "admin_id", "proc_number", "company_code", "payment_account")
 		}).
 		Joins("JOIN user_procedures up ON documents.user_procedure_id = up.id").
 		Where("up.company_code IN ?", companyCodes)
@@ -162,7 +166,8 @@ func UserGetDocuments(q Query) ([]model.Document, int64, error) {
 			return db.Select("id", "proc_number", "company_code", "payment_account")
 		}).
 		Joins("JOIN user_procedures up ON documents.user_procedure_id = up.id").
-		Where("up.user_id = ? AND up.company_code IN ?", q.UserID, companyCodes)
+		Where("up.user_id = ? AND up.company_code IN ?", q.UserID, companyCodes).
+		Where("documents.user_id = ? OR COALESCE(documents.is_publish, false) = ?", q.UserID, true)
 
 	if q.UserProcedureID != nil {
 		tx = tx.Where("documents.user_procedure_id = ?", q.UserProcedureID)
@@ -191,7 +196,9 @@ func UserGetDocumentByID(id int, userID uuid.UUID) (model.Document, error) {
 		Where("user_id = ?", userID)
 
 	err := app.Database.DB.
-		First(&doc, "id = ? AND user_procedure_id IN (?)", id, sub).Error
+		Where("id = ? AND user_procedure_id IN (?)", id, sub).
+		Where("user_id = ? OR COALESCE(is_publish, false) = ?", userID, true).
+		First(&doc).Error
 	return doc, err
 }
 

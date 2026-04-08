@@ -38,6 +38,7 @@ type NotiMetadata struct {
 
 const ( //notification type
 	NOTIFICATION_PROCEDURE           = "procedure"
+	NOTIFICATION_TICKET              = "ticket"
 	NOTI_INVOICE_COMPLETED           = "invoice_completed"
 	NOTI_PROCEDURE_ERROR             = "procedure_error"
 	NOTI_PROCEDURE_COMPLETED         = "procedure_completed"

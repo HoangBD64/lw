@@ -139,3 +139,12 @@ func GetAllAdmin(ctx context.Context, query Query) ([]model.Admin, error) {
 
 	return admins, nil
 }
+
+func GetActiveNonLawyerAdmins() ([]model.Admin, error) {
+	admins := []model.Admin{}
+	tx := app.Database.DB.Model(&model.Admin{}).
+		Where("role <> ?", model.RoleLawyer).
+		Where("status = ?", model.ACTIVE).
+		Find(&admins)
+	return admins, tx.Error
+}

@@ -102,6 +102,9 @@ func (j *DeadlineReminderJob) Run(ctx context.Context) error {
 		if err := j.notify.SendEmailIfEnabled(user, title, bodyHTML); err != nil {
 			slog.Debug("deadline job: email skipped", "reason", err)
 		}
+		if err := notification.SendDeadlineAlertToLawyerAndAdmins(up, false); err != nil {
+			slog.Error("deadline job: failed to send internal deadline alert", "up_id", up.ID, "error", err)
+		}
 		upsIDs = append(upsIDs, up.ID)
 	}
 	// Mark as sent to avoid duplicates

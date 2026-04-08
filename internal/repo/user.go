@@ -57,7 +57,7 @@ func GetUsersByAdmin(ctx context.Context, query Query) ([]model.User, error) {
 }
 
 func UpdateUserInfo(user model.User) (model.User, error) {
-	result := app.Database.DB.Select("name", "phone", "avatar", "gender", "dob", "address").Updates(&user)
+	result := app.Database.DB.Select("name", "phone", "avatar", "gender", "dob", "address", "metadata").Updates(&user)
 	return user, result.Error
 }
 

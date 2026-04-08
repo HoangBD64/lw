@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"core/app/migrations"
+	migrator "core/app/migrations"
 	"core/internal/domain_model/model"
 	"errors"
 	"fmt"
@@ -69,10 +69,10 @@ func MigrateDatabase(DB *gorm.DB) {
 		slog.Debug("failed to create uuid extension", "error", tx.Error)
 	}
 
-	if err := migrations.New(DB).Migrate(); err != nil {
-		slog.Error("Database migration failed (custom migrator)", "error", err)
-		panic(err)
-	}
+	// if err := migrator.New(DB, migrator.PreTableMigrationsList()).Migrate(); err != nil {
+	// 	slog.Error("Database migration failed (custom migrator)", "error", err)
+	// 	panic(err)
+	// }
 
 	//must be pointer
 	migrations := []any{
@@ -96,13 +96,15 @@ func MigrateDatabase(DB *gorm.DB) {
 		&model.ExtraFee{},
 	}
 
-	// MigrateNotificationsMetadataToJSONB(DB)
-
 	if err := DB.AutoMigrate(migrations...); err != nil {
 		slog.Error("Database migration failed", "error", err)
 		panic(err)
 	}
 
+	if err := migrator.New(DB, migrator.PostTableMigrationsList()).Migrate(); err != nil {
+		slog.Error("Database migration failed (custom migrator)", "error", err)
+		panic(err)
+	}
 }
 
 type slogLogger struct {
