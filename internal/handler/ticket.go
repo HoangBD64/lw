@@ -200,6 +200,9 @@ func CreateTicket(c *fiber.Ctx) error {
 		if err != nil {
 			return c.JSON(base.BaseResponse{Status: false, Message: "Can't find user_procedure for this user", Error: err})
 		}
+		if up.UserID == nil || *up.UserID != user.ID {
+			return c.JSON(base.BaseResponse{Status: false, Message: "Unauthorized"})
+		}
 		_ = repo.MarkUserProcedureHasTicket(*input.UserProcedureID, true)
 		ticketType = model.TICKET_TYPE_PROCEDURE
 	}
@@ -290,6 +293,9 @@ func CreateTicketContent(c *fiber.Ctx) error {
 	ticket, err := repo.GetTicketByID(*input.TicketID, user)
 	if err != nil {
 		return c.JSON(base.BaseResponse{Status: false, Message: "Can't GetTicketByID", Error: err})
+	}
+	if user.ID == uuid.Nil || ticket.UserID == nil || *ticket.UserID != user.ID {
+		return c.JSON(base.BaseResponse{Status: false, Message: "Unauthorized"})
 	}
 	if ticket.Status == model.TICKET_RESOLVED {
 		return c.JSON(base.BaseResponse{Status: false, Message: "ticket is in resolved status"})
@@ -519,7 +525,6 @@ func AdminUpdateTicket(c *fiber.Ctx) error {
 		Status         string     `json:"status"`
 		Priority       string     `json:"priority"`
 		Subject        string     `json:"subject"`
-		ResolutionType string     `json:"resolution_type"`
 		InternalNote   string     `json:"internal_note"`
 	}
 	var input request
@@ -562,9 +567,6 @@ func AdminUpdateTicket(c *fiber.Ctx) error {
 	}
 	if strings.TrimSpace(input.Subject) != "" {
 		ticket.Subject = strings.TrimSpace(input.Subject)
-	}
-	if strings.TrimSpace(input.ResolutionType) != "" {
-		ticket.ResolutionType = strings.TrimSpace(input.ResolutionType)
 	}
 	if input.InternalNote != "" {
 		ticket.InternalNote = input.InternalNote
